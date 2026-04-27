@@ -5,8 +5,11 @@ Generate hero photos and OG images for digitalfuturenh.com using OpenAI gpt-imag
 Usage (locally, with OpenAI key in env):
   OPENAI_API_KEY=sk-... python3 generate_images.py
 
-Or pull the key from the production server:
-  OPENAI_API_KEY=$(ssh root@138.197.20.97 'grep OPENAI_ADMIN_KEY /opt/nh-whip-count/.env | cut -d= -f2') python3 generate_images.py
+Or pull the standard project key from the production server (NOT the admin key):
+  OPENAI_API_KEY=$(ssh root@138.197.20.97 'grep ^OPENAI_API_KEY /opt/ctehr-candidate-website/.env | cut -d= -f2-') \
+    python3 generate_images.py
+Note: /opt/nh-whip-count/.env has OPENAI_ADMIN_KEY (sk-admin-...) which is an
+Admin API key and CANNOT call /v1/images. Always use the sk-proj-... key.
 
 Visual rules:
   - Real NH photo backgrounds (Mt Washington, Old Man, Statehouse, Lake Winnipesaukee, granite quarry)
