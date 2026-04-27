@@ -810,6 +810,12 @@ p:last-child { margin-bottom: 0; }
   text-align: left;
   border-bottom: 1px solid var(--gray-100);
   font-size: 0.95rem;
+  color: var(--text);
+}
+
+.cmp-table tbody td:first-child {
+  font-weight: 600;
+  color: var(--navy);
 }
 
 .cmp-table thead th {
@@ -820,11 +826,18 @@ p:last-child { margin-bottom: 0; }
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  border-bottom: 0;
 }
 
 .cmp-table tbody tr:hover { background: var(--off-white); }
 .col-pass { color: var(--cyan-deep); font-weight: 700; }
-.col-fail { color: var(--orange); font-weight: 700; }
+.col-fail { color: var(--violet-deep); font-weight: 700; }
+
+/* Force readable text inside cmp-table even when nested in .sec-dark */
+.sec-dark .cmp-table td,
+.sec-dark .cmp-table th { color: var(--text); }
+.sec-dark .cmp-table thead th { color: var(--white); }
+.sec-dark .cmp-table tbody td:first-child { color: var(--navy); }
 
 /* ============================================================
    STEPS
