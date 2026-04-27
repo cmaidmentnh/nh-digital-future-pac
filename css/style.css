@@ -252,23 +252,26 @@ p:last-child { margin-bottom: 0; }
   gap: 0.7rem;
 }
 
-.nav-brand .brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 32px;
+.nav-brand .brand-logo {
+  display: block;
+  height: 40px;
+  width: auto;
 }
 
-.nav-brand .brand-mark svg { width: 100%; height: 100%; }
-
-.nav-brand i {
-  font-style: normal;
-  background: var(--grad-cv);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.nav-brand .brand-pac {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  color: var(--white);
+  padding: 0.25rem 0.55rem;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: linear-gradient(120deg, rgba(34,211,238,.12), rgba(139,92,246,.12));
 }
+
+/* Footer brand uses smaller logo */
+.footer .nav-brand .brand-logo { height: 36px; }
 
 .nav-links { display: flex; list-style: none; gap: 0.15rem; align-items: center; }
 
