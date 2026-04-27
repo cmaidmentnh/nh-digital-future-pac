@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+  <defs>
+    <linearGradient id="nh-cv-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <!-- Geometric, simplified NH silhouette: narrow at top, wider middle, base coast -->
+  <path fill="url(#nh-cv-grad)" d="M82,4 L96,2 L108,6 L116,12 L124,22 L132,38 L138,52 L146,68 L150,84 L156,100 L162,118 L166,136 L172,156 L176,178 L180,196 L182,214 L178,228 L168,238 L154,244 L138,246 L122,242 L106,236 L90,228 L78,218 L66,208 L54,200 L44,194 L36,188 L30,180 L26,170 L24,158 L26,144 L30,128 L34,114 L38,98 L42,84 L48,70 L54,56 L62,42 L70,28 L76,16 Z"/>
+</svg>
