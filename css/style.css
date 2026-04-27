@@ -1158,3 +1158,8 @@ p:last-child { margin-bottom: 0; }
   .hero-sub { min-height: 42vh; }
   .hero-content { padding: 7rem 1.25rem 3rem; }
 }
+
+@media (max-width: 600px) {
+  .nav-brand .brand-word i { display: none; }
+}
+
