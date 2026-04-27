@@ -6,28 +6,29 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --black:        #05080f;
-  --navy:         #0a1224;
-  --navy-mid:     #131c33;
-  --navy-light:   #1d2944;
+  /* Brand book exact palette */
+  --navy:         #0A1128;
+  --navy-mid:     #121a3a;
+  --navy-light:   #1c2548;
+  --black:        #05081a;
   --slate:        #1f2937;
-  --granite:      #374151;
+  --granite:      #4b5563;
 
-  /* Primary accent: cyan -> violet gradient */
-  --cyan:         #22d3ee;
-  --cyan-bright:  #67e8f9;
-  --cyan-deep:    #0891b2;
-  --violet:       #8b5cf6;
-  --violet-bright:#a78bfa;
-  --violet-deep:  #6d28d9;
+  --blue:         #2563FF;   /* Electric Blue — technology, motion */
+  --blue-bright:  #4F7DFF;
+  --blue-deep:    #1d4ed8;
 
-  /* Reserved highlight for occasional ctas / pillar accents */
-  --orange:       #f7931a;
-  --orange-bright:#ffa733;
+  --cyan:         #00E5C3;   /* Crypto Cyan — blockchain, energy */
+  --cyan-bright:  #4FF0D5;
+  --cyan-deep:    #00B89A;
+
+  --violet:       #7C4DFF;   /* Future, fintech */
+  --violet-bright:#9D7AFF;
+  --violet-deep:  #5B2FE0;
 
   --green:        #22c55e;
-  --white:        #ffffff;
-  --off-white:    #f7f9fc;
+  --white:        #FFFFFF;
+  --off-white:    #F2F4F7;   /* Light Gray — neutral background */
   --gray-50:      #f8fafc;
   --gray-100:    #eef0f5;
   --gray-200:    #d8dde6;
@@ -35,14 +36,16 @@
   --gray-500:    #6b7280;
   --gray-700:    #374151;
   --gray-900:    #111827;
-  --text:         #1c2230;
+  --text:         #0A1128;
   --text-muted:   #5b6577;
 
-  --grad-cv:      linear-gradient(120deg, var(--cyan) 0%, var(--violet) 100%);
-  --grad-cv-soft: linear-gradient(120deg, rgba(34,211,238,.18), rgba(139,92,246,.18));
+  /* Brand gradient: cyan -> violet (with electric blue available for accents) */
+  --grad-cv:      linear-gradient(120deg, var(--cyan) 0%, var(--blue) 50%, var(--violet) 100%);
+  --grad-cv-soft: linear-gradient(120deg, rgba(0,229,195,.15), rgba(124,77,255,.18));
 
-  --font-display: 'Montserrat', system-ui, sans-serif;
-  --font-body:    'Source Sans 3', 'Source Sans Pro', system-ui, sans-serif;
+  /* Brand book typography */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', 'Roboto Mono', ui-monospace, monospace;
 
   --max-w:    1200px;
@@ -76,17 +79,16 @@ strong { font-weight: 700; }
    ============================================================ */
 h1, h2, h3, h4 {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.08;
   color: var(--navy);
-  text-transform: uppercase;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.025em;
 }
 
-h1 { font-size: clamp(2.6rem, 6vw, 5.2rem); }
-h2 { font-size: clamp(1.95rem, 3.8vw, 3rem); margin-bottom: 1.5rem; }
-h3 { font-size: clamp(1.15rem, 2vw, 1.4rem); margin-bottom: 0.75rem; letter-spacing: 0; text-transform: none; }
-h4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.08em; }
+h1 { font-size: clamp(2.6rem, 6vw, 5.2rem); font-weight: 700; }
+h2 { font-size: clamp(1.95rem, 3.8vw, 3rem); margin-bottom: 1.5rem; font-weight: 700; }
+h3 { font-size: clamp(1.15rem, 2vw, 1.4rem); margin-bottom: 0.75rem; font-weight: 600; }
+h4 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
 
 p { margin-bottom: 1rem; }
 p:last-child { margin-bottom: 0; }
@@ -241,37 +243,54 @@ p:last-child { margin-bottom: 0; }
 }
 
 .nav-brand {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1rem;
-  color: var(--white);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   display: inline-flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.65rem;
+  color: var(--white);
 }
 
-.nav-brand .brand-logo {
-  display: block;
-  height: 40px;
+.nav-brand .brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
   width: auto;
 }
 
-.nav-brand .brand-pac {
-  display: inline-block;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 0.7rem;
-  letter-spacing: 0.22em;
-  color: var(--white);
-  padding: 0.25rem 0.55rem;
-  border: 1px solid rgba(255,255,255,0.25);
-  background: linear-gradient(120deg, rgba(34,211,238,.12), rgba(139,92,246,.12));
+.nav-brand .brand-mark img {
+  display: block;
+  height: 36px;
+  width: auto;
 }
 
-/* Footer brand uses smaller logo */
-.footer .nav-brand .brand-logo { height: 36px; }
+.nav-brand .brand-word {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.nav-brand .brand-word b {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  color: var(--white);
+}
+
+.nav-brand .brand-word i {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.6rem;
+  letter-spacing: 0.32em;
+  margin-top: 0.3rem;
+  color: var(--cyan);
+  text-transform: uppercase;
+}
+
+/* Footer keeps the same lockup, slightly smaller */
+.footer .nav-brand .brand-mark img { height: 32px; }
+.footer .nav-brand .brand-word b { font-size: 0.9rem; }
 
 .nav-links { display: flex; list-style: none; gap: 0.15rem; align-items: center; }
 
