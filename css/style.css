@@ -792,6 +792,140 @@ p:last-child { margin-bottom: 0; }
 }
 
 /* ============================================================
+   STATUS CHIPS (track-record cards, key-bills sidebar)
+   ============================================================ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.chip::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: var(--gray-300);
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.chip-signed   { color: var(--cyan-deep); border-color: var(--cyan); }
+.chip-signed::before   { background: var(--cyan); }
+
+.chip-passed   { color: var(--blue-deep); border-color: var(--blue); }
+.chip-passed::before   { background: var(--blue); }
+
+.chip-progress { color: var(--violet-deep); border-color: var(--violet); }
+.chip-progress::before { background: var(--violet); }
+
+.chip-killed   { color: var(--gray-500); border-color: var(--gray-300); }
+.chip-killed::before   { background: var(--gray-500); }
+
+.chip-planned  { color: var(--cyan-deep); border-color: var(--cyan); background: var(--off-white); }
+.chip-planned::before  { background: var(--cyan); }
+
+.chip-first {
+  background: var(--grad-cv);
+  color: var(--navy);
+  border: 0;
+  font-weight: 700;
+}
+.chip-first::before { background: var(--navy); }
+
+/* Track record card layout: chip row + body + source link */
+.tr-card {
+  background: var(--white);
+  padding: 2.25rem;
+  border-top: 2px solid var(--gray-200);
+  box-shadow: 0 1px 4px rgba(10,18,36,0.04);
+  transition: all 0.35s var(--ease);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.tr-card::before {
+  content: '';
+  position: absolute;
+  top: -2px; left: 0;
+  width: 60px;
+  height: 2px;
+  background: var(--grad-cv);
+  transition: width 0.3s var(--ease);
+}
+.tr-card:hover { box-shadow: 0 16px 36px rgba(10,18,36,0.1); transform: translateY(-3px); }
+.tr-card:hover::before { width: 100%; }
+
+.tr-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+
+.tr-card .billno {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cyan-deep);
+  margin-bottom: 0.6rem;
+}
+
+.tr-card h3 { color: var(--navy); margin-bottom: 0.6rem; }
+
+.tr-card p { color: var(--text-muted); font-size: 0.97rem; }
+
+.tr-card .src {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--gray-100);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--cyan-deep);
+}
+.tr-card .src a { border-bottom: 1px solid var(--cyan); padding-bottom: 1px; }
+.tr-card .src a:hover { color: var(--violet); border-bottom-color: var(--violet); }
+
+/* Issues page: key-bills sidebar list */
+.kb-list {
+  list-style: none;
+  margin: 0; padding: 0;
+}
+.kb-list li {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+.kb-list li:last-child { border-bottom: 0; }
+.kb-list .billno {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cyan-deep);
+  margin-bottom: 0.3rem;
+  display: block;
+}
+.kb-list h4 {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--navy);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: 0.4rem;
+}
+.kb-list p {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+/* ============================================================
    COMPARISON / TABLE
    ============================================================ */
 .cmp-table {
