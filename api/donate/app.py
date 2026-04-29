@@ -97,23 +97,12 @@ init_db()
 
 # ---------- helpers ----------
 
-REQUIRED_FIELDS = [
-    'first_name', 'last_name', 'email',
-    'address1', 'city', 'state', 'postal_code',
-    'employer', 'occupation', 'principal_place',
-]
-
-
-def _validate_payload(data: dict) -> tuple[bool, str]:
+def _validate_amount(data: dict) -> tuple[bool, str]:
     if not isinstance(data, dict):
         return False, 'invalid payload'
     amount = data.get('amount_cents')
     if not isinstance(amount, int) or amount < MIN_CENTS or amount > MAX_CENTS:
         return False, 'amount out of range'
-    for f in REQUIRED_FIELDS:
-        v = data.get(f)
-        if v is None or (isinstance(v, str) and not v.strip()):
-            return False, f'missing field: {f}'
     return True, ''
 
 
@@ -143,12 +132,73 @@ def config():
 
 @app.route('/api/donate/create-intent', methods=['POST', 'OPTIONS'])
 def create_intent():
+    """Create the PaymentIntent up-front with just an amount.
+
+    Donor info is collected later via /update-metadata so that the
+    Stripe Payment Element can mount as soon as the donor picks an
+    amount — UX-wise this matters more than carrying donor metadata
+    on the initial intent."""
     if request.method == 'OPTIONS':
         return ('', 204)
     data = request.get_json(silent=True) or {}
-    ok, err = _validate_payload(data)
+    ok, err = _validate_amount(data)
     if not ok:
         return jsonify({'error': err}), 400
+
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=int(data['amount_cents']),
+            currency='usd',
+            automatic_payment_methods={'enabled': True},
+            description="Donation to NH Digital Future PAC",
+            metadata={'source': 'digitalfuturenh.com',
+                      'utm': (data.get('utm') or '')[:200]},
+            stripe_account=CONNECTED_ACCOUNT_ID,
+        )
+    except stripe.error.StripeError as e:
+        return jsonify({'error': str(e.user_message or e)}), 400
+
+    with db() as c:
+        c.execute("""
+            INSERT OR IGNORE INTO donations (
+              payment_intent_id, status, amount_cents, currency, created_at,
+              ip, user_agent, utm)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            intent.id, intent.status, intent.amount, intent.currency,
+            datetime.now(timezone.utc).isoformat(),
+            (request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:80],
+            (request.headers.get('User-Agent') or '')[:300],
+            (data.get('utm') or '')[:200],
+        ))
+
+    return jsonify({
+        'client_secret': intent.client_secret,
+        'payment_intent_id': intent.id,
+    })
+
+
+REQUIRED_DONOR_FIELDS = [
+    'first_name', 'last_name', 'email',
+    'address1', 'city', 'state', 'postal_code',
+    'employer', 'occupation', 'principal_place',
+]
+
+
+@app.route('/api/donate/update-metadata', methods=['POST', 'OPTIONS'])
+def update_metadata():
+    """Attach donor info to a previously-created PaymentIntent and
+    record it locally. Called right before stripe.confirmPayment()."""
+    if request.method == 'OPTIONS':
+        return ('', 204)
+    data = request.get_json(silent=True) or {}
+    pi_id = (data.get('payment_intent_id') or '').strip()
+    if not pi_id.startswith('pi_'):
+        return jsonify({'error': 'missing payment_intent_id'}), 400
+    for f in REQUIRED_DONOR_FIELDS:
+        v = data.get(f)
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return jsonify({'error': f'missing field: {f}'}), 400
 
     metadata = {
         'first_name': data['first_name'][:200],
@@ -164,56 +214,42 @@ def create_intent():
         'employer': data['employer'][:200],
         'occupation': data['occupation'][:200],
         'principal_place': data['principal_place'][:200],
-        'attest_citizen': '1',
-        'attest_own_funds': '1',
-        'attest_not_corporate': '1',
         'utm': (data.get('utm') or '')[:200],
         'source': 'digitalfuturenh.com',
     }
 
     try:
-        intent = stripe.PaymentIntent.create(
-            amount=int(data['amount_cents']),
-            currency='usd',
-            automatic_payment_methods={'enabled': True},
+        stripe.PaymentIntent.modify(
+            pi_id,
+            metadata=metadata,
+            receipt_email=data['email'],
             description=f"Donation to NH Digital Future PAC from "
                         f"{data['first_name']} {data['last_name']}",
-            receipt_email=data['email'],
-            metadata=metadata,
             stripe_account=CONNECTED_ACCOUNT_ID,
         )
     except stripe.error.StripeError as e:
         return jsonify({'error': str(e.user_message or e)}), 400
 
-    # Pre-record the intent so the webhook can update it later.
     with db() as c:
         c.execute("""
-            INSERT OR IGNORE INTO donations (
-              payment_intent_id, status, amount_cents, currency, created_at,
-              first_name, last_name, email, phone,
-              address1, address2, city, state, postal_code, country,
-              employer, occupation, principal_place,
-              attest_citizen, attest_own_funds, attest_not_corporate,
-              ip, user_agent, utm, raw_metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            UPDATE donations SET
+              first_name = ?, last_name = ?, email = ?, phone = ?,
+              address1 = ?, address2 = ?, city = ?, state = ?,
+              postal_code = ?, country = ?,
+              employer = ?, occupation = ?, principal_place = ?,
+              raw_metadata = ?
+            WHERE payment_intent_id = ?
         """, (
-            intent.id, intent.status, intent.amount, intent.currency,
-            datetime.now(timezone.utc).isoformat(),
             metadata['first_name'], metadata['last_name'], metadata['email'],
             metadata['phone'],
             metadata['address1'], metadata['address2'], metadata['city'],
             metadata['state'], metadata['postal_code'], metadata['country'],
             metadata['employer'], metadata['occupation'], metadata['principal_place'],
-            1, 1, 1,
-            (request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:80],
-            (request.headers.get('User-Agent') or '')[:300],
-            metadata['utm'], json.dumps(metadata),
+            json.dumps(metadata),
+            pi_id,
         ))
 
-    return jsonify({
-        'client_secret': intent.client_secret,
-        'payment_intent_id': intent.id,
-    })
+    return jsonify({'ok': True})
 
 
 @app.post('/api/donate/webhook')

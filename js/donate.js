@@ -1,7 +1,9 @@
-/* Digital Future NH — embedded Stripe donate form */
+/* Digital Future NH — embedded Stripe donate form (two-step flow) */
 (function () {
   const form = document.getElementById('donate-form');
   if (!form) return;
+
+  console.log('[donate] script loaded');
 
   const API_BASE = '/api/donate';
   const submitBtn = document.getElementById('donate-submit');
@@ -14,10 +16,14 @@
   let amountCents = 0;
   let stripe = null;
   let elements = null;
-  let clientSecret = null;
   let paymentIntentId = null;
   let mounted = false;
   let mounting = false;
+
+  function showError(msg) {
+    errorBox.textContent = msg || '';
+    errorBox.style.display = msg ? 'block' : 'none';
+  }
 
   function setAmount(cents) {
     amountCents = cents;
@@ -27,6 +33,7 @@
     if (cents > 0) {
       submitBtn.disabled = false;
       submitAmt.textContent = ' · $' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0 });
+      ensureMount();
     } else {
       submitBtn.disabled = true;
       submitAmt.textContent = '';
@@ -42,60 +49,40 @@
 
   customInput.addEventListener('input', () => {
     const v = parseFloat(customInput.value);
-    if (isFinite(v) && v > 0) {
-      setAmount(Math.round(v * 100));
-    } else {
-      setAmount(0);
-    }
     presetButtons.forEach(b => b.classList.remove('on'));
+    if (isFinite(v) && v > 0) setAmount(Math.round(v * 100));
+    else setAmount(0);
   });
-
-  function showError(msg) {
-    errorBox.textContent = msg || '';
-    errorBox.style.display = msg ? 'block' : 'none';
-  }
-
-  function readDonor() {
-    const fd = new FormData(form);
-    const data = Object.fromEntries(fd.entries());
-    data.amount_cents = amountCents;
-    data.utm = window.location.search.replace(/^\?/, '').slice(0, 200);
-    return data;
-  }
-
-  function ensureFilled() {
-    const required = form.querySelectorAll('input[required], select[required]');
-    for (const el of required) {
-      if (el.type === 'checkbox') {
-        if (!el.checked) return false;
-      } else if (!el.value.trim()) {
-        return false;
-      }
-    }
-    return amountCents > 0;
-  }
 
   async function ensureMount() {
     if (mounted || mounting) return;
-    if (!ensureFilled()) return;
+    if (amountCents <= 0) return;
     mounting = true;
     showError('');
+    console.log('[donate] starting mount, amount=', amountCents);
     try {
-      const cfg = await fetch(API_BASE + '/config').then(r => r.json());
+      const cfgResp = await fetch(API_BASE + '/config');
+      const cfg = await cfgResp.json();
+      console.log('[donate] config loaded', cfg.connected_account);
+
+      if (typeof Stripe === 'undefined') throw new Error('Stripe.js failed to load');
       stripe = Stripe(cfg.publishable_key, { stripeAccount: cfg.connected_account });
 
-      const resp = await fetch(API_BASE + '/create-intent', {
+      const intentResp = await fetch(API_BASE + '/create-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(readDonor()),
+        body: JSON.stringify({
+          amount_cents: amountCents,
+          utm: window.location.search.replace(/^\?/, '').slice(0, 200),
+        }),
       });
-      const body = await resp.json();
-      if (!resp.ok) throw new Error(body.error || 'Could not start payment.');
-      clientSecret = body.client_secret;
-      paymentIntentId = body.payment_intent_id;
+      const intentBody = await intentResp.json();
+      if (!intentResp.ok) throw new Error(intentBody.error || 'Could not start payment.');
+      paymentIntentId = intentBody.payment_intent_id;
+      console.log('[donate] PaymentIntent created', paymentIntentId);
 
       elements = stripe.elements({
-        clientSecret,
+        clientSecret: intentBody.client_secret,
         appearance: {
           theme: 'stripe',
           variables: {
@@ -111,58 +98,110 @@
       const paymentEl = elements.create('payment', { layout: 'tabs' });
       paymentEl.on('ready', () => console.log('[donate] payment element ready'));
       paymentEl.on('loaderror', (e) => {
-        console.error('[donate] payment element load error', e);
-        showError(e.error && e.error.message || 'Payment form failed to load.');
+        console.error('[donate] loaderror', e);
+        showError((e.error && e.error.message) || 'Payment form failed to load.');
       });
       paymentEl.mount('#payment-element');
       mounted = true;
-      console.log('[donate] mount complete');
+      console.log('[donate] mounted');
     } catch (e) {
       console.error('[donate] mount failed', e);
-      showError((e && e.message) || 'Could not start payment. Please refresh and try again.');
-    } finally {
+      showError(e.message || 'Could not start payment. Refresh and try again.');
       mounting = false;
     }
   }
 
-  // Mount the Stripe element as soon as donor info + amount are filled.
-  form.addEventListener('change', ensureMount);
-  form.addEventListener('blur', ensureMount, true);
+  // Re-create-intent if the amount changes after mount.
+  // (Stripe Element is bound to the original client_secret; if amount
+  // changes, we need a fresh intent. Simplest approach: just modify
+  // the existing PaymentIntent via stripe.PaymentIntent.update on the
+  // server. For now, refresh the page and pick again.)
+  // TODO: hook amount changes into a /update-amount endpoint.
+
+  function readDonor() {
+    const fd = new FormData(form);
+    const data = Object.fromEntries(fd.entries());
+    data.amount_cents = amountCents;
+    data.payment_intent_id = paymentIntentId;
+    data.utm = window.location.search.replace(/^\?/, '').slice(0, 200);
+    return data;
+  }
+
+  function validateDonorClient() {
+    const required = form.querySelectorAll('input[required], select[required]');
+    for (const el of required) {
+      if (!el.value.trim()) {
+        el.focus();
+        return el;
+      }
+    }
+    return null;
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     showError('');
-    if (!ensureFilled()) {
-      showError('Please complete all required fields.');
+
+    if (amountCents <= 0) { showError('Please pick an amount.'); return; }
+    const missing = validateDonorClient();
+    if (missing) {
+      showError('Please complete: ' + (missing.previousElementSibling?.textContent || missing.name));
       return;
     }
-    if (!mounted) await ensureMount();
-    if (!stripe || !elements) {
-      showError('Payment is still loading. Please try again in a moment.');
+    if (!mounted || !stripe || !elements) {
+      showError('Payment is still loading. Please wait a moment and try again.');
       return;
     }
+
     submitBtn.disabled = true;
-    submitBtn.querySelector('.donate-submit-label').textContent = 'Processing…';
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: window.location.origin + '/involved/?donated=1',
-        receipt_email: form.querySelector('[name=email]').value,
-      },
-      redirect: 'if_required',
-    });
-    if (error) {
-      showError(error.message || 'Payment failed.');
+    const labelEl = submitBtn.querySelector('.donate-submit-label');
+    labelEl.textContent = 'Processing…';
+
+    try {
+      // Attach donor info to the PaymentIntent before confirming.
+      const updResp = await fetch(API_BASE + '/update-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(readDonor()),
+      });
+      const updBody = await updResp.json();
+      if (!updResp.ok) throw new Error(updBody.error || 'Could not save donor info.');
+
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.origin + '/involved/?donated=1',
+          receipt_email: form.querySelector('[name=email]').value,
+          payment_method_data: {
+            billing_details: {
+              name: form.querySelector('[name=first_name]').value + ' ' + form.querySelector('[name=last_name]').value,
+              email: form.querySelector('[name=email]').value,
+              phone: form.querySelector('[name=phone]').value || undefined,
+              address: {
+                line1: form.querySelector('[name=address1]').value,
+                line2: form.querySelector('[name=address2]').value || undefined,
+                city: form.querySelector('[name=city]').value,
+                state: form.querySelector('[name=state]').value,
+                postal_code: form.querySelector('[name=postal_code]').value,
+                country: form.querySelector('[name=country]').value || 'US',
+              },
+            },
+          },
+        },
+        redirect: 'if_required',
+      });
+      if (error) throw error;
+
+      form.style.display = 'none';
+      successBox.hidden = false;
+      successBox.scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+      showError(err.message || 'Payment failed.');
       submitBtn.disabled = false;
-      submitBtn.querySelector('.donate-submit-label').textContent = 'Contribute';
-      return;
+      labelEl.textContent = 'Contribute';
     }
-    form.style.display = 'none';
-    successBox.hidden = false;
-    successBox.scrollIntoView({ behavior: 'smooth' });
   });
 
-  // If returning from an off-site authentication, show success state.
   if (new URLSearchParams(window.location.search).get('donated') === '1') {
     form.style.display = 'none';
     successBox.hidden = false;
