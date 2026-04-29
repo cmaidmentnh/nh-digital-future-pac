@@ -59,9 +59,6 @@
     const fd = new FormData(form);
     const data = Object.fromEntries(fd.entries());
     data.amount_cents = amountCents;
-    data.attest_citizen = form.querySelector('[name=attest_citizen]').checked ? 1 : 0;
-    data.attest_own_funds = form.querySelector('[name=attest_own_funds]').checked ? 1 : 0;
-    data.attest_not_corporate = form.querySelector('[name=attest_not_corporate]').checked ? 1 : 0;
     data.utm = window.location.search.replace(/^\?/, '').slice(0, 200);
     return data;
   }
