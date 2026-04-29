@@ -252,6 +252,35 @@ def update_metadata():
     return jsonify({'ok': True})
 
 
+@app.route('/api/donate/update-amount', methods=['POST', 'OPTIONS'])
+def update_amount():
+    """Modify the amount on an existing PaymentIntent.
+
+    Used when the donor changes the preset/custom amount or toggles
+    the cover-fees checkbox after the Element has already mounted."""
+    if request.method == 'OPTIONS':
+        return ('', 204)
+    data = request.get_json(silent=True) or {}
+    pi_id = (data.get('payment_intent_id') or '').strip()
+    if not pi_id.startswith('pi_'):
+        return jsonify({'error': 'missing payment_intent_id'}), 400
+    ok, err = _validate_amount(data)
+    if not ok:
+        return jsonify({'error': err}), 400
+    try:
+        intent = stripe.PaymentIntent.modify(
+            pi_id,
+            amount=int(data['amount_cents']),
+            stripe_account=CONNECTED_ACCOUNT_ID,
+        )
+    except stripe.error.StripeError as e:
+        return jsonify({'error': str(e.user_message or e)}), 400
+    with db() as c:
+        c.execute("UPDATE donations SET amount_cents = ? WHERE payment_intent_id = ?",
+                  (intent.amount, pi_id))
+    return jsonify({'ok': True, 'amount_cents': intent.amount})
+
+
 @app.post('/api/donate/webhook')
 def webhook():
     payload = request.data

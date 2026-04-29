@@ -53,50 +53,111 @@
   const successBox = document.getElementById('donate-success');
   const presetButtons = form.querySelectorAll('.donate-amount');
 
-  let amountCents = 0;
+  let baseAmountCents = 0;   // what the donor wants the PAC to receive
+  let amountCents = 0;       // what the card is actually charged (includes fee if covered)
+  let coverFees = false;
   let stripe = null;
   let elements = null;
   let paymentIntentId = null;
   let mounted = false;
   let mounting = false;
+  let updatingAmount = false;
+  const coverFeesBox = document.getElementById('donate-cover-fees');
+  const feeSummary = document.getElementById('donate-fee-summary');
+
+  // Stripe US card fee: 2.9% + $0.30. Gross-up formula:
+  // total = ceil((net + 30) / 0.971); fee = total - net.
+  function grossUpForFees(netCents) {
+    if (netCents <= 0) return 0;
+    return Math.ceil((netCents + 30) / 0.971);
+  }
+  function recomputeTotal() {
+    amountCents = coverFees ? grossUpForFees(baseAmountCents) : baseAmountCents;
+    if (!feeSummary) return;
+    if (baseAmountCents <= 0) { feeSummary.textContent = ''; return; }
+    if (coverFees) {
+      const fee = amountCents - baseAmountCents;
+      feeSummary.textContent =
+        'You will be charged $' + (amountCents / 100).toFixed(2) +
+        ' (fee $' + (fee / 100).toFixed(2) + '). PAC receives $' + (baseAmountCents / 100).toFixed(2) + '.';
+    } else {
+      const estFee = Math.ceil(baseAmountCents * 0.029 + 30);
+      const net = baseAmountCents - estFee;
+      feeSummary.textContent = 'Without covering: PAC nets ~$' + (net / 100).toFixed(2) + ' after Stripe fees.';
+    }
+  }
 
   function showError(msg) {
     errorBox.textContent = msg || '';
     errorBox.style.display = msg ? 'block' : 'none';
   }
 
-  function setAmount(cents) {
-    amountCents = cents;
-    presetButtons.forEach(b => {
-      b.classList.toggle('on', parseInt(b.dataset.amount, 10) === cents);
-    });
-    if (cents > 0) {
+  async function syncAmount() {
+    recomputeTotal();
+    if (baseAmountCents > 0) {
       submitBtn.disabled = false;
-      submitAmt.textContent = ' · $' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0 });
-      ensureMount();
+      submitAmt.textContent = ' · $' + (amountCents / 100).toLocaleString('en-US',
+        { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     } else {
       submitBtn.disabled = true;
       submitAmt.textContent = '';
     }
+    if (!mounted) {
+      await ensureMount();
+    } else if (paymentIntentId && !updatingAmount) {
+      updatingAmount = true;
+      try {
+        const resp = await fetch(API_BASE + '/update-amount', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payment_intent_id: paymentIntentId, amount_cents: amountCents }),
+        });
+        if (!resp.ok) throw new Error((await resp.json()).error || 'update-amount failed');
+        if (elements && elements.fetchUpdates) await elements.fetchUpdates();
+        console.log('[donate] amount updated to', amountCents);
+      } catch (e) {
+        console.error('[donate] update-amount failed', e);
+        showError(e.message || 'Could not update amount.');
+      } finally {
+        updatingAmount = false;
+      }
+    }
+  }
+
+  function setBaseAmount(cents) {
+    baseAmountCents = cents;
+    presetButtons.forEach(b => {
+      b.classList.toggle('on', parseInt(b.dataset.amount, 10) === cents);
+    });
+    syncAmount();
   }
 
   presetButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       customInput.value = '';
-      setAmount(parseInt(btn.dataset.amount, 10));
+      setBaseAmount(parseInt(btn.dataset.amount, 10));
     });
   });
 
   customInput.addEventListener('input', () => {
     const v = parseFloat(customInput.value);
     presetButtons.forEach(b => b.classList.remove('on'));
-    if (isFinite(v) && v > 0) setAmount(Math.round(v * 100));
-    else setAmount(0);
+    if (isFinite(v) && v > 0) setBaseAmount(Math.round(v * 100));
+    else setBaseAmount(0);
   });
+
+  if (coverFeesBox) {
+    coverFeesBox.addEventListener('change', () => {
+      coverFees = coverFeesBox.checked;
+      syncAmount();
+    });
+  }
 
   async function ensureMount() {
     if (mounted || mounting) return;
     if (amountCents <= 0) return;
+    // capture amount at time of intent creation; later changes go through update-amount
+    const intentAmount = amountCents;
     mounting = true;
     showError('');
     console.log('[donate] starting mount, amount=', amountCents);
@@ -112,7 +173,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount_cents: amountCents,
+          amount_cents: intentAmount,
           utm: window.location.search.replace(/^\?/, '').slice(0, 200),
         }),
       });

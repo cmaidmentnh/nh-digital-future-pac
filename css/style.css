@@ -1456,10 +1456,33 @@ p:last-child { margin-bottom: 0; }
 
 .donate-payment-mount {
   background: #fff;
-  border: 1px solid var(--gray-200);
-  padding: 1rem;
-  min-height: 240px;
 }
+.donate-payment-mount .StripeElement,
+.donate-payment-mount iframe {
+  width: 100%;
+}
+
+.donate-cover-fee {
+  display: flex;
+  gap: .65rem;
+  align-items: flex-start;
+  padding: .85rem 1rem;
+  margin-top: .85rem;
+  background: var(--gray-50, #f8fafc);
+  border: 1px solid var(--gray-200);
+  font-size: .9rem;
+  color: var(--navy);
+  line-height: 1.5;
+  cursor: pointer;
+}
+.donate-cover-fee input[type="checkbox"] {
+  margin-top: .2rem;
+  flex-shrink: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--blue, #2563FF);
+}
+.donate-cover-fee strong { color: var(--blue-deep, #1d4ed8); }
 
 .donate-error {
   display: none;
