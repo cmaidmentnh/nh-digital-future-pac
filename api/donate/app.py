@@ -101,12 +101,7 @@ REQUIRED_FIELDS = [
     'first_name', 'last_name', 'email',
     'address1', 'city', 'state', 'postal_code',
     'employer', 'occupation', 'principal_place',
-    'attest_citizen', 'attest_own_funds', 'attest_not_corporate',
 ]
-
-
-def _truthy(v):
-    return str(v).lower() in ('1', 'true', 'yes', 'on')
 
 
 def _validate_payload(data: dict) -> tuple[bool, str]:
@@ -119,9 +114,6 @@ def _validate_payload(data: dict) -> tuple[bool, str]:
         v = data.get(f)
         if v is None or (isinstance(v, str) and not v.strip()):
             return False, f'missing field: {f}'
-    if not all(_truthy(data.get(k)) for k in
-               ('attest_citizen', 'attest_own_funds', 'attest_not_corporate')):
-        return False, 'all compliance attestations are required'
     return True, ''
 
 
