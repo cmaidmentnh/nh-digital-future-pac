@@ -1,7 +1,7 @@
-__pycache__/
-*.py[cod]
-.venv/
-.env
+~$*
 .DS_Store
-*.swp
-node_modules/
+__pycache__/
+*.pyc
+api/donate/.env
+api/donate/donations.db
+api/donate/venv/
