@@ -36,6 +36,9 @@ STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 CONNECTED_ACCOUNT_ID = os.environ.get('STRIPE_CONNECTED_ACCOUNT', 'acct_1TRbDCDIv3mOgD9F')
 DB_PATH = os.environ.get('DFNH_DB_PATH', str(ROOT / 'donations.db'))
 ALLOWED_ORIGIN = os.environ.get('ALLOWED_ORIGIN', 'https://digitalfuturenh.com')
+# Platform fee routed to the 1772 Strategies parent account (in percent).
+# 0.5 == 0.5% of the charge total. Set to 0 to disable.
+PLATFORM_FEE_PERCENT = float(os.environ.get('PLATFORM_FEE_PERCENT', '0') or '0')
 
 stripe.api_key = STRIPE_SECRET_KEY
 
@@ -145,16 +148,21 @@ def create_intent():
     if not ok:
         return jsonify({'error': err}), 400
 
+    amount_cents = int(data['amount_cents'])
+    intent_kwargs = dict(
+        amount=amount_cents,
+        currency='usd',
+        automatic_payment_methods={'enabled': True},
+        description="Donation to NH Digital Future PAC",
+        metadata={'source': 'digitalfuturenh.com',
+                  'utm': (data.get('utm') or '')[:200]},
+        stripe_account=CONNECTED_ACCOUNT_ID,
+    )
+    platform_fee_cents = int(round(amount_cents * (PLATFORM_FEE_PERCENT / 100.0)))
+    if platform_fee_cents > 0:
+        intent_kwargs['application_fee_amount'] = platform_fee_cents
     try:
-        intent = stripe.PaymentIntent.create(
-            amount=int(data['amount_cents']),
-            currency='usd',
-            automatic_payment_methods={'enabled': True},
-            description="Donation to NH Digital Future PAC",
-            metadata={'source': 'digitalfuturenh.com',
-                      'utm': (data.get('utm') or '')[:200]},
-            stripe_account=CONNECTED_ACCOUNT_ID,
-        )
+        intent = stripe.PaymentIntent.create(**intent_kwargs)
     except stripe.error.StripeError as e:
         return jsonify({'error': str(e.user_message or e)}), 400
 
@@ -267,12 +275,13 @@ def update_amount():
     ok, err = _validate_amount(data)
     if not ok:
         return jsonify({'error': err}), 400
+    amount_cents = int(data['amount_cents'])
+    modify_kwargs = dict(amount=amount_cents, stripe_account=CONNECTED_ACCOUNT_ID)
+    platform_fee_cents = int(round(amount_cents * (PLATFORM_FEE_PERCENT / 100.0)))
+    if platform_fee_cents > 0:
+        modify_kwargs['application_fee_amount'] = platform_fee_cents
     try:
-        intent = stripe.PaymentIntent.modify(
-            pi_id,
-            amount=int(data['amount_cents']),
-            stripe_account=CONNECTED_ACCOUNT_ID,
-        )
+        intent = stripe.PaymentIntent.modify(pi_id, **modify_kwargs)
     except stripe.error.StripeError as e:
         return jsonify({'error': str(e.user_message or e)}), 400
     with db() as c:
