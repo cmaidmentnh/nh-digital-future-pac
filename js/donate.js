@@ -65,11 +65,12 @@
   const coverFeesBox = document.getElementById('donate-cover-fees');
   const feeSummary = document.getElementById('donate-fee-summary');
 
-  // Stripe US card fee: 2.9% + $0.30. Gross-up formula:
-  // total = ceil((net + 30) / 0.971); fee = total - net.
+  // Total processing cost = Stripe (2.9% + $0.30) + 1772 platform fee (0.5%)
+  //                       = 3.4% + $0.30.
+  // Gross-up: net = total * (1 - 0.034) - 30 → total = (net + 30) / 0.966.
   function grossUpForFees(netCents) {
     if (netCents <= 0) return 0;
-    return Math.ceil((netCents + 30) / 0.971);
+    return Math.ceil((netCents + 30) / 0.966);
   }
   function recomputeTotal() {
     amountCents = coverFees ? grossUpForFees(baseAmountCents) : baseAmountCents;
@@ -81,9 +82,9 @@
         'You will be charged $' + (amountCents / 100).toFixed(2) +
         ' (fee $' + (fee / 100).toFixed(2) + '). PAC receives $' + (baseAmountCents / 100).toFixed(2) + '.';
     } else {
-      const estFee = Math.ceil(baseAmountCents * 0.029 + 30);
+      const estFee = Math.ceil(baseAmountCents * 0.034 + 30);
       const net = baseAmountCents - estFee;
-      feeSummary.textContent = 'Without covering: PAC nets ~$' + (net / 100).toFixed(2) + ' after Stripe fees.';
+      feeSummary.textContent = 'Without covering: PAC nets ~$' + (net / 100).toFixed(2) + ' after processing fees.';
     }
   }
 
