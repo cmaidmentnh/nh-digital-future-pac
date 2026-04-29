@@ -26,8 +26,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=8">
-  <script src="/js/main.js?v=8" defer></script>
+  <link rel="stylesheet" href="/css/style.css?v=11">
+  <script src="/js/main.js?v=11" defer></script>
+  <script src="https://js.stripe.com/v3/" defer></script>
+  <script src="/js/donate.js?v=11" defer></script>
 </head>
 <body>
 <div class="progress-bar"></div>
@@ -65,29 +67,99 @@
     <div class="sec-header reveal">
       <span class="overline">01 · Fund the Mission</span>
       <h2>Donate</h2>
-      <p>Voter contact, candidate research, and independent expenditures cost real money. We accept dollars and BTC. Every contribution is reported to the NH Secretary of State per RSA 664.</p>
+      <p>Card payments are processed securely by Stripe. Every contribution is reported to the New Hampshire Secretary of State per RSA 664. Bitcoin contributions are accepted separately &mdash; see below.</p>
     </div>
 
-    <div class="grid grid-2 reveal stagger">
-      <article class="card">
-        <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="13"/><path d="M2 10h20M6 15h4"/></svg></div>
-        <h3>Donate USD</h3>
-        <p>Card or ACH via our secure processor. The standard, fast option.</p>
-        <p style="margin-top:1rem"><a href="#" class="btn btn-grad" data-target="usd-donate">Donate USD</a></p>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-top:.85rem;font-family:var(--font-mono)">Processor link to be configured at launch.</p>
-      </article>
+    <form class="donate-form reveal" id="donate-form" novalidate>
+      <div class="donate-step">
+        <div class="donate-step-label">Step 1 · Amount</div>
+        <div class="donate-amounts">
+          <button type="button" class="donate-amount" data-amount="2500">$25</button>
+          <button type="button" class="donate-amount" data-amount="10000">$100</button>
+          <button type="button" class="donate-amount" data-amount="25000">$250</button>
+          <button type="button" class="donate-amount" data-amount="50000">$500</button>
+          <button type="button" class="donate-amount" data-amount="100000">$1,000</button>
+          <button type="button" class="donate-amount" data-amount="500000">$5,000</button>
+        </div>
+        <label class="donate-custom">
+          <span>Or enter another amount</span>
+          <div class="donate-custom-input">
+            <span class="donate-currency">$</span>
+            <input type="number" id="donate-custom-amount" min="1" max="500000" step="1" inputmode="decimal" placeholder="0">
+          </div>
+        </label>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Step 2 · Donor information</div>
+        <div class="donate-grid">
+          <label><span>First name</span><input type="text" name="first_name" autocomplete="given-name" required></label>
+          <label><span>Last name</span><input type="text" name="last_name" autocomplete="family-name" required></label>
+          <label class="span-2"><span>Email</span><input type="email" name="email" autocomplete="email" required></label>
+          <label class="span-2"><span>Phone (optional)</span><input type="tel" name="phone" autocomplete="tel"></label>
+          <label class="span-2"><span>Street address</span><input type="text" name="address1" autocomplete="address-line1" required></label>
+          <label class="span-2"><span>Apt / suite (optional)</span><input type="text" name="address2" autocomplete="address-line2"></label>
+          <label><span>City</span><input type="text" name="city" autocomplete="address-level2" required></label>
+          <label><span>State</span><input type="text" name="state" maxlength="2" placeholder="NH" autocomplete="address-level1" required></label>
+          <label><span>ZIP code</span><input type="text" name="postal_code" inputmode="numeric" autocomplete="postal-code" required></label>
+          <label><span>Country</span><input type="text" name="country" value="US" maxlength="2" autocomplete="country" required></label>
+        </div>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Step 3 · Employment (required by law)</div>
+        <div class="donate-grid">
+          <label class="span-2"><span>Employer</span><input type="text" name="employer" required placeholder="e.g. Self-employed, retired, ABC Inc."></label>
+          <label class="span-2"><span>Occupation</span><input type="text" name="occupation" required placeholder="e.g. software engineer, teacher, retired"></label>
+          <label class="span-2"><span>Principal place of employment (city, state)</span><input type="text" name="principal_place" required placeholder="Concord, NH"></label>
+        </div>
+        <p class="donate-help">New Hampshire law and federal best practice require us to collect and report employer, occupation, and principal place of employment for every contributor. If you are retired or unemployed, write "retired" or "not employed" and your home city/state.</p>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Step 4 · Required attestations</div>
+        <label class="donate-check"><input type="checkbox" name="attest_citizen" required> I am a U.S. citizen or lawfully admitted permanent resident.</label>
+        <label class="donate-check"><input type="checkbox" name="attest_own_funds" required> This contribution is from my own funds. It is not made on behalf of anyone else and I am not being reimbursed for it.</label>
+        <label class="donate-check"><input type="checkbox" name="attest_not_corporate" required> This contribution is not made from the general treasury funds of a corporation, labor organization, or national bank.</label>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Step 5 · Payment</div>
+        <div id="payment-element" class="donate-payment-mount"></div>
+        <div id="donate-error" class="donate-error" role="alert"></div>
+      </div>
+
+      <button type="submit" id="donate-submit" class="btn btn-grad donate-submit" disabled>
+        <span class="donate-submit-label">Contribute</span>
+        <span class="donate-submit-amount" id="donate-submit-amount"></span>
+      </button>
+
+      <p class="donate-disclaimer">Paid for by NH Digital Future PAC. Not authorized by any candidate or candidate&rsquo;s committee. Contributions to political action committees are not tax deductible.</p>
+    </form>
+
+    <div id="donate-success" class="donate-success reveal" hidden>
+      <h3>Thank you.</h3>
+      <p>Your contribution to NH Digital Future PAC has been received. A receipt is on its way to your email. Records will be reported to the New Hampshire Secretary of State per RSA 664.</p>
+    </div>
+
+    <div class="grid grid-2 reveal stagger" style="margin-top:3rem">
       <article class="card">
         <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 8h5a3 3 0 0 1 0 6H9zM9 14h6a3 3 0 0 1 0 6H9zM10 6v2M10 18v2M14 6v2M14 18v2"/></svg></div>
         <h3>Donate Bitcoin</h3>
-        <p>Send BTC on-chain or via Lightning. Receipts and tax statements provided. Contributions valued at spot at time of receipt.</p>
-        <p style="margin-top:1rem"><a href="#" class="btn btn-cyan" data-target="btc-donate">Get BTC Address</a></p>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-top:.85rem;font-family:var(--font-mono)">BTC / LN address to be issued at launch.</p>
+        <p>Send BTC on-chain or via Lightning. Receipts and tax statements provided. Contributions are valued at the spot rate at time of receipt and reported the same way as cash.</p>
+        <p style="margin-top:1rem"><a href="mailto:info@digitalfuturenh.com?subject=Bitcoin%20contribution" class="btn btn-cyan">Request BTC Address</a></p>
+      </article>
+      <article class="card">
+        <div class="card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg></div>
+        <h3>Wire transfer</h3>
+        <p>For larger contributions, we accept domestic wires to TD Bank, NA. Wire instructions are issued on request after a phone call.</p>
+        <p style="margin-top:1rem"><a href="mailto:info@digitalfuturenh.com?subject=Wire%20instructions" class="btn">Request Wire Instructions</a></p>
       </article>
     </div>
 
     <div class="callout reveal" style="margin-top:3rem">
       <blockquote>The most expensive PAC dollar is the one that wasn't there when a marginal House race needed it. The least expensive one is the one you give before the cycle starts.</blockquote>
-      <cite>&mdash; Digital Future NH PAC</cite>
+      <cite>&mdash; NH Digital Future PAC</cite>
     </div>
   </div>
 </section>
@@ -156,7 +228,7 @@
     <div class="grid grid-2 reveal stagger">
       <article class="card card-dark">
         <h3>General &amp; press</h3>
-        <p style="font-family:var(--font-mono);color:var(--orange);letter-spacing:.04em">contact@digitalfuturenh.com</p>
+        <p style="font-family:var(--font-mono);color:var(--orange);letter-spacing:.04em">info@digitalfuturenh.com</p>
       </article>
       <article class="card card-dark">
         <h3>Candidates</h3>
