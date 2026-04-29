@@ -21,6 +21,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import boto3
 import stripe
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
@@ -39,6 +40,16 @@ ALLOWED_ORIGIN = os.environ.get('ALLOWED_ORIGIN', 'https://digitalfuturenh.com')
 # Platform fee routed to the 1772 Strategies parent account (in percent).
 # 0.5 == 0.5% of the charge total. Set to 0 to disable.
 PLATFORM_FEE_PERCENT = float(os.environ.get('PLATFORM_FEE_PERCENT', '0') or '0')
+
+# Email config (AWS SES). digitalfuturenh.com isn't yet a verified SES domain,
+# so we send from 1772strategies.com (parent platform) with reply-to set to
+# info@digitalfuturenh.com.
+SES_FROM = os.environ.get('SES_FROM', 'forms@1772strategies.com')
+ENDORSEMENT_TO = os.environ.get('ENDORSEMENT_TO', 'info@digitalfuturenh.com')
+BRIEFING_TO = os.environ.get('BRIEFING_TO', 'info@digitalfuturenh.com')
+AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
+
+_ses = boto3.client('ses', region_name=AWS_REGION) if os.environ.get('AWS_ACCESS_KEY_ID') else None
 
 stripe.api_key = STRIPE_SECRET_KEY
 
@@ -92,6 +103,26 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_donations_pi ON donations(payment_intent_id);
         CREATE INDEX IF NOT EXISTS idx_donations_email ON donations(email);
+
+        CREATE TABLE IF NOT EXISTS endorsement_requests (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          created_at TEXT,
+          name TEXT,
+          email TEXT,
+          office TEXT,
+          party TEXT,
+          message TEXT,
+          ip TEXT,
+          user_agent TEXT
+        );
+        CREATE TABLE IF NOT EXISTS briefing_signups (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          created_at TEXT,
+          email TEXT UNIQUE,
+          ip TEXT,
+          user_agent TEXT,
+          source TEXT
+        );
         """)
 
 
@@ -314,6 +345,92 @@ def webhook():
                 event['id'], pi['id'],
             ))
     return jsonify({'received': True})
+
+
+def _send_email(to, subject, body_text, reply_to=None):
+    if not _ses:
+        return False, 'SES not configured'
+    try:
+        kwargs = {
+            'Source': SES_FROM,
+            'Destination': {'ToAddresses': [to]},
+            'Message': {
+                'Subject': {'Data': subject, 'Charset': 'UTF-8'},
+                'Body': {'Text': {'Data': body_text, 'Charset': 'UTF-8'}},
+            },
+        }
+        if reply_to:
+            kwargs['ReplyToAddresses'] = [reply_to]
+        _ses.send_email(**kwargs)
+        return True, None
+    except Exception as e:
+        return False, str(e)
+
+
+@app.route('/api/donate/endorsement-request', methods=['POST', 'OPTIONS'])
+def endorsement_request():
+    if request.method == 'OPTIONS':
+        return ('', 204)
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    email = (data.get('email') or '').strip()
+    office = (data.get('office') or '').strip()
+    party = (data.get('party') or '').strip()
+    message = (data.get('message') or '').strip()
+    if not name or not email:
+        return jsonify({'error': 'Name and email are required.'}), 400
+    if '@' not in email or '.' not in email:
+        return jsonify({'error': 'Please enter a valid email address.'}), 400
+
+    with db() as c:
+        c.execute("""
+            INSERT INTO endorsement_requests
+              (created_at, name, email, office, party, message, ip, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            datetime.now(timezone.utc).isoformat(),
+            name[:200], email[:200], office[:200], party[:50], message[:5000],
+            (request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:80],
+            (request.headers.get('User-Agent') or '')[:300],
+        ))
+
+    body = (
+        f"New endorsement / survey request from digitalfuturenh.com\n\n"
+        f"Name:    {name}\n"
+        f"Email:   {email}\n"
+        f"Office:  {office or '(not specified)'}\n"
+        f"Party:   {party or '(not specified)'}\n\n"
+        f"Why they'd like an endorsement:\n{message or '(not specified)'}\n"
+    )
+    _send_email(ENDORSEMENT_TO, f"Endorsement request — {name}", body, reply_to=email)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/donate/briefing-signup', methods=['POST', 'OPTIONS'])
+def briefing_signup():
+    if request.method == 'OPTIONS':
+        return ('', 204)
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    if '@' not in email or '.' not in email:
+        return jsonify({'error': 'Please enter a valid email address.'}), 400
+    with db() as c:
+        c.execute("""
+            INSERT OR IGNORE INTO briefing_signups
+              (created_at, email, ip, user_agent, source)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            datetime.now(timezone.utc).isoformat(),
+            email[:200],
+            (request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:80],
+            (request.headers.get('User-Agent') or '')[:300],
+            (data.get('source') or 'involved-page')[:50],
+        ))
+    _send_email(BRIEFING_TO,
+                f"New briefing list signup — {email}",
+                f"New signup on digitalfuturenh.com\n\nEmail: {email}\n",
+                reply_to=email)
+    return jsonify({'ok': True})
 
 
 @app.get('/api/donate/health')

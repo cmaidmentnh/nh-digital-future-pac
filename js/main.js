@@ -95,7 +95,7 @@
       }
       msg.textContent = 'Submitting...';
       msg.className = 'signup-msg';
-      fetch('/api/signup', {
+      fetch('/api/donate/briefing-signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -118,6 +118,48 @@
         });
     });
   });
+
+  // ===== ENDORSEMENT REQUEST FORM =====
+  var endForm = document.getElementById('endorsement-form');
+  if (endForm) {
+    var endMsg = document.getElementById('endorsement-msg');
+    endForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var data = {
+        name: endForm.querySelector('[name=name]').value.trim(),
+        email: endForm.querySelector('[name=email]').value.trim(),
+        office: endForm.querySelector('[name=office]').value.trim(),
+        party: endForm.querySelector('[name=party]').value,
+        message: endForm.querySelector('[name=message]').value.trim()
+      };
+      if (!data.name || !data.email) {
+        endMsg.textContent = 'Name and email are required.';
+        endMsg.style.color = 'var(--orange)'; return;
+      }
+      var btn = endForm.querySelector('button[type=submit]');
+      btn.disabled = true;
+      endMsg.textContent = 'Submitting...';
+      endMsg.style.color = 'var(--text-muted)';
+      fetch('/api/donate/endorsement-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+        .then(function (r) { return r.json().then(function (b) { return r.ok ? b : Promise.reject(b); }); })
+        .then(function () {
+          endForm.reset();
+          endMsg.textContent = 'Thanks. We received your request and will be in touch.';
+          endMsg.style.color = 'var(--cyan-deep, #0e7490)';
+          if (typeof ga === 'function') ga('endorsement_request', {});
+          btn.disabled = false;
+        })
+        .catch(function (err) {
+          endMsg.textContent = (err && err.error) || 'Could not submit. Try again.';
+          endMsg.style.color = 'var(--orange)';
+          btn.disabled = false;
+        });
+    });
+  }
 
   // ===== GA4 =====
   function ga(event, params) {

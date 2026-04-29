@@ -20,16 +20,16 @@
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://digitalfuturenh.com/involved/">
   <link rel="icon" href="/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=17">
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=17">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=18">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=18">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=17">
-  <script src="/js/main.js?v=17" defer></script>
+  <link rel="stylesheet" href="/css/style.css?v=18">
+  <script src="/js/main.js?v=18" defer></script>
   <script src="https://js.stripe.com/v3/" defer></script>
-  <script src="/js/donate.js?v=17" defer></script>
+  <script src="/js/donate.js?v=18" defer></script>
 </head>
 <body>
 <div class="progress-bar"></div>
@@ -169,33 +169,33 @@
       <p>NH candidate or potential candidate? Take the questionnaire. Endorsements are party-blind and graded against the public framework.</p>
     </div>
 
-    <form class="card reveal" style="border-top:2px solid transparent;background-image:linear-gradient(white,white),var(--grad-cv);background-origin:border-box;background-clip:padding-box,border-box;max-width:680px;margin:0 auto" onsubmit="return false">
+    <form id="endorsement-form" class="card reveal" style="border-top:2px solid transparent;background-image:linear-gradient(white,white),var(--grad-cv);background-origin:border-box;background-clip:padding-box,border-box;max-width:680px;margin:0 auto">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
         <label style="display:block">
           <span style="font-family:var(--font-mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)">Name</span>
-          <input type="text" required style="width:100%;padding:.7rem .85rem;border:1px solid var(--gray-200);font-family:inherit;font-size:.95rem;margin-top:.35rem">
+          <input type="text" name="name" required style="width:100%;padding:.7rem .85rem;border:1px solid var(--gray-200);font-family:inherit;font-size:.95rem;margin-top:.35rem">
         </label>
         <label style="display:block">
           <span style="font-family:var(--font-mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)">Email</span>
-          <input type="email" required style="width:100%;padding:.7rem .85rem;border:1px solid var(--gray-200);font-family:inherit;font-size:.95rem;margin-top:.35rem">
+          <input type="email" name="email" required style="width:100%;padding:.7rem .85rem;border:1px solid var(--gray-200);font-family:inherit;font-size:.95rem;margin-top:.35rem">
         </label>
         <label style="display:block">
           <span style="font-family:var(--font-mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)">Office</span>
-          <input type="text" placeholder="e.g. NH House, Hillsborough 21" style="width:100%;padding:.7rem .85rem;border:1px solid var(--gray-200);font-family:inherit;font-size:.95rem;margin-top:.35rem">
+          <input type="text" name="office" placeholder="e.g. NH House, Hillsborough 21" style="width:100%;padding:.7rem .85rem;border:1px solid var(--gray-200);font-family:inherit;font-size:.95rem;margin-top:.35rem">
         </label>
         <label style="display:block">
           <span style="font-family:var(--font-mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)">Party</span>
-          <select style="width:100%;padding:.7rem .85rem;border:1px solid var(--gray-200);font-family:inherit;font-size:.95rem;margin-top:.35rem">
+          <select name="party" style="width:100%;padding:.7rem .85rem;border:1px solid var(--gray-200);font-family:inherit;font-size:.95rem;margin-top:.35rem">
             <option>Republican</option><option>Democrat</option><option>Libertarian</option><option>Independent</option><option>Other</option>
           </select>
         </label>
       </div>
       <label style="display:block;margin-top:1rem">
         <span style="font-family:var(--font-mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)">Why you'd like an endorsement</span>
-        <textarea rows="4" style="width:100%;padding:.7rem .85rem;border:1px solid var(--gray-200);font-family:inherit;font-size:.95rem;margin-top:.35rem;resize:vertical"></textarea>
+        <textarea name="message" rows="4" style="width:100%;padding:.7rem .85rem;border:1px solid var(--gray-200);font-family:inherit;font-size:.95rem;margin-top:.35rem;resize:vertical"></textarea>
       </label>
       <button type="submit" class="btn btn-grad" style="margin-top:1.25rem">Request Survey</button>
-      <p style="font-size:.82rem;color:var(--text-muted);margin-top:1rem;font-family:var(--font-mono)">Form submission to be wired to /api/endorsement-request at launch.</p>
+      <p id="endorsement-msg" style="font-size:.9rem;margin-top:1rem;font-family:var(--font-mono);min-height:1.1rem"></p>
     </form>
   </div>
 </section>
