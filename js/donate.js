@@ -67,9 +67,9 @@
     const required = form.querySelectorAll('input[required], select[required]');
     for (const el of required) {
       if (el.type === 'checkbox') {
-        if (!el.checked) { el.focus(); return false; }
+        if (!el.checked) return false;
       } else if (!el.value.trim()) {
-        el.focus(); return false;
+        return false;
       }
     }
     return amountCents > 0;
@@ -97,42 +97,29 @@
       elements = stripe.elements({
         clientSecret,
         appearance: {
-          theme: 'flat',
+          theme: 'stripe',
           variables: {
             fontFamily: '"Inter", system-ui, sans-serif',
             colorPrimary: '#2563FF',
-            colorBackground: '#ffffff',
             colorText: '#0A1128',
             colorDanger: '#b91c1c',
             borderRadius: '0px',
-            spacingUnit: '4px',
-          },
-          rules: {
-            '.Input': {
-              border: '1px solid #d1d5db',
-              boxShadow: 'none',
-              padding: '12px',
-            },
-            '.Input:focus': {
-              border: '1px solid #2563FF',
-              boxShadow: '0 0 0 1px #2563FF',
-            },
-            '.Label': {
-              fontFamily: '"JetBrains Mono", ui-monospace, monospace',
-              fontSize: '11px',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: '#4b5566',
-            },
           },
         },
       });
 
-      const paymentEl = elements.create('payment');
+      const paymentEl = elements.create('payment', { layout: 'tabs' });
+      paymentEl.on('ready', () => console.log('[donate] payment element ready'));
+      paymentEl.on('loaderror', (e) => {
+        console.error('[donate] payment element load error', e);
+        showError(e.error && e.error.message || 'Payment form failed to load.');
+      });
       paymentEl.mount('#payment-element');
       mounted = true;
+      console.log('[donate] mount complete');
     } catch (e) {
-      showError(e.message || 'Could not start payment. Please refresh and try again.');
+      console.error('[donate] mount failed', e);
+      showError((e && e.message) || 'Could not start payment. Please refresh and try again.');
     } finally {
       mounting = false;
     }
