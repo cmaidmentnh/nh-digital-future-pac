@@ -5,6 +5,46 @@
 
   console.log('[donate] script loaded');
 
+  // Persist donor fields to localStorage so refreshes don't wipe them.
+  const STORAGE_KEY = 'dfnh_donor_v1';
+  const PERSISTED_NAMES = [
+    'first_name', 'last_name', 'email', 'phone',
+    'address1', 'address2', 'city', 'state', 'postal_code', 'country',
+    'employer', 'occupation', 'principal_place',
+  ];
+
+  function loadDonor() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      PERSISTED_NAMES.forEach(name => {
+        if (data[name]) {
+          const el = form.querySelector(`[name="${name}"]`);
+          if (el && !el.value) el.value = data[name];
+        }
+      });
+      console.log('[donate] restored donor info from localStorage');
+    } catch (e) { console.warn('[donate] could not restore donor info', e); }
+  }
+
+  function saveDonor() {
+    try {
+      const out = {};
+      PERSISTED_NAMES.forEach(name => {
+        const el = form.querySelector(`[name="${name}"]`);
+        if (el && el.value) out[name] = el.value;
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(out));
+    } catch (e) { /* quota or disabled */ }
+  }
+
+  loadDonor();
+  PERSISTED_NAMES.forEach(name => {
+    const el = form.querySelector(`[name="${name}"]`);
+    if (el) el.addEventListener('input', saveDonor);
+  });
+
   const API_BASE = '/api/donate';
   const submitBtn = document.getElementById('donate-submit');
   const submitAmt = document.getElementById('donate-submit-amount');
