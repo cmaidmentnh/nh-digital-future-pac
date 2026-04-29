@@ -203,8 +203,7 @@ def build_cover_letter():
     r.font.size = Pt(9.5); r.font.color.rgb = GRAY
 
     footer(doc,
-        "Paid for by Digital Future NH PAC. Not authorized by any candidate or "
-        "candidate's committee. Contributions are not tax deductible.")
+        "Paid for by NH Digital Future PAC, 248 Carley Road, Peterborough, NH 03458. Chris Maidment, Chair. Not authorized by any candidate or candidate's committee. Contributions are not tax deductible.")
 
     out = OUT / 'DigitalFutureNH_Cover_Letter.docx'
     doc.save(out)
@@ -268,8 +267,7 @@ def build_wire_instructions():
     r.font.size = Pt(10); r.font.color.rgb = GRAY
 
     footer(doc,
-        "Paid for by Digital Future NH PAC. Not authorized by any candidate or "
-        "candidate's committee. Contributions are not tax deductible.")
+        "Paid for by NH Digital Future PAC, 248 Carley Road, Peterborough, NH 03458. Chris Maidment, Chair. Not authorized by any candidate or candidate's committee. Contributions are not tax deductible.")
 
     out = OUT / 'DigitalFutureNH_Wire_Instructions.docx'
     doc.save(out)
