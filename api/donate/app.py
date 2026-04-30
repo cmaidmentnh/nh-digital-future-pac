@@ -332,8 +332,17 @@ def webhook():
     except (ValueError, stripe.error.SignatureVerificationError):
         return jsonify({'error': 'bad signature'}), 400
 
-    if event['type'] in ('payment_intent.succeeded', 'payment_intent.payment_failed'):
-        pi = event['data']['object']
+    # This is a Connect-level webhook on the 1772 Strategies platform —
+    # we receive events from ALL connected accounts. Ignore anything that
+    # isn't for the DFNH PAC connected account.
+    if event.get('account') and event['account'] != CONNECTED_ACCOUNT_ID:
+        return jsonify({'received': True, 'ignored': 'wrong account'})
+
+    etype = event['type']
+    obj = event['data']['object']
+
+    if etype in ('payment_intent.succeeded', 'payment_intent.payment_failed'):
+        pi = obj
         with db() as c:
             c.execute("""
                 UPDATE donations
@@ -344,6 +353,41 @@ def webhook():
                 datetime.now(timezone.utc).isoformat() if pi['status'] == 'succeeded' else None,
                 event['id'], pi['id'],
             ))
+        if etype == 'payment_intent.succeeded':
+            md = pi.get('metadata') or {}
+            charges = (pi.get('charges') or {}).get('data') or []
+            last4 = (charges[0].get('payment_method_details', {}).get('card', {}).get('last4')
+                     if charges else '')
+            brand = (charges[0].get('payment_method_details', {}).get('card', {}).get('brand')
+                     if charges else '')
+            donor = (md.get('first_name', '') + ' ' + md.get('last_name', '')).strip() \
+                    or pi.get('receipt_email') or '(unknown donor)'
+            body = (
+                f"New donation received via digitalfuturenh.com\n\n"
+                f"Amount:        ${pi['amount']/100:.2f}\n"
+                f"Donor:         {donor}\n"
+                f"Email:         {pi.get('receipt_email','')}\n"
+                f"Card:          {brand} ****{last4}\n"
+                f"Address:       {md.get('address1','')} {md.get('address2','')}, "
+                f"{md.get('city','')}, {md.get('state','')} {md.get('postal_code','')} {md.get('country','')}\n"
+                f"Employer:      {md.get('employer','')}\n"
+                f"Occupation:    {md.get('occupation','')}\n"
+                f"Place of work: {md.get('principal_place','')}\n"
+                f"PaymentIntent: {pi['id']}\n"
+                f"Stripe link:   https://dashboard.stripe.com/connect/accounts/{CONNECTED_ACCOUNT_ID}/payments/{pi['id']}\n"
+            )
+            _send_email(ENDORSEMENT_TO,
+                        f"💸 New donation: ${pi['amount']/100:.2f} from {donor}",
+                        body, reply_to=pi.get('receipt_email') or None)
+
+    elif etype == 'charge.refunded':
+        ch = obj
+        body = (f"Refund issued on digitalfuturenh.com donation\n\n"
+                f"Charge:   {ch['id']}\n"
+                f"Amount:   ${ch['amount_refunded']/100:.2f} of ${ch['amount']/100:.2f}\n"
+                f"PI:       {ch.get('payment_intent','')}\n")
+        _send_email(ENDORSEMENT_TO, f"Refund: ${ch['amount_refunded']/100:.2f}", body)
+
     return jsonify({'received': True})
 
 
