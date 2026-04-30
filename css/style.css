@@ -1528,3 +1528,71 @@ p:last-child { margin-bottom: 0; }
   margin-bottom: .75rem;
 }
 .donate-success p { color: rgba(255,255,255,.85); line-height: 1.65; }
+
+/* ---------- Survey form (uses .donate-form skin + extra rules) ---------- */
+/* Textareas placed directly inside .donate-step (outside .donate-grid)
+   were rendering at their UA-default size and floating right on mobile.
+   These rules make them full-width and consistent with grid inputs. */
+.donate-step > label {
+  display: block;
+}
+.donate-step > label > span {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: .35rem;
+}
+.donate-step > label > textarea,
+.donate-step > label > input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: .7rem .85rem;
+  border: 1px solid var(--gray-200);
+  font: inherit;
+  font-size: .95rem;
+  background: #fff;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  resize: vertical;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.5;
+}
+.donate-step > label > textarea:focus,
+.donate-step > label > input:focus {
+  border-color: var(--blue, #2563FF);
+  box-shadow: 0 0 0 1px var(--blue, #2563FF);
+}
+
+/* Survey position radio groups */
+.survey-options {
+  display: grid;
+  gap: .35rem;
+  margin-top: .5rem;
+}
+.survey-options .donate-check {
+  padding: .5rem 0;
+  border: 0;
+  background: transparent;
+  font-size: .95rem;
+}
+.survey-options input[type="radio"] {
+  margin-top: .25rem;
+  flex-shrink: 0;
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--blue, #2563FF);
+}
+
+/* Tighter mobile padding for survey/donate forms */
+@media (max-width: 600px) {
+  .donate-form { padding: 1rem; }
+  .donate-step + .donate-step { padding-top: 1rem; margin-top: 1.25rem; }
+  .donate-step > label > textarea { font-size: 16px; } /* prevent iOS zoom */
+  .donate-step > label > input { font-size: 16px; }
+  .donate-grid input, .donate-grid select { font-size: 16px; }
+}
