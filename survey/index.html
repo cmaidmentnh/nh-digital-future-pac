@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Issues Survey — NH Digital Future PAC</title>
+  <meta name="description" content="The NH Digital Future PAC issues survey. Six pillars, party-blind grading.">
+  <meta name="theme-color" content="#0a1224">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="canonical" href="https://digitalfuturenh.com/survey/">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=19">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=19">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+  <link rel="stylesheet" href="/css/style.css?v=19">
+  <script src="/js/main.js?v=19" defer></script>
+  <script src="/js/survey.js?v=19" defer></script>
+</head>
+<body>
+<div class="progress-bar"></div>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="nav-brand" href="/"><span class="brand-mark"><img src="/images/logo-icon-color-trans.png" alt="Digital Future NH"></span><span class="brand-word"><b>Digital Future NH</b></span></a>
+    <button class="nav-toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/about/">About</a></li>
+      <li><a href="/issues/">Issues</a></li>
+      <li><a href="/candidates/">Endorsements</a></li>
+      <li><a href="/news/">News</a></li>
+      <li><a href="/involved/">Get Involved</a></li>
+      <li><a href="/involved/#donate" class="btn-nav">Donate</a></li>
+    </ul>
+  </div>
+</nav>
+
+<header class="hero hero-sub" style="min-height:35vh">
+  <div class="hero-overlay" style="background:var(--navy)"></div>
+  <div class="hero-content">
+    <span class="overline">Candidates · 2026 Cycle</span>
+    <h1>Issues <span class="accent">Survey</span></h1>
+    <p class="hero-lead">Six pillars. Party-blind grading. Your responses are public once we publish your scorecard.</p>
+  </div>
+</header>
+
+<section class="sec">
+  <div class="wrap-sm">
+    <div id="survey-loading" class="article-body reveal" role="status">
+      <p style="font-family:var(--font-mono);color:var(--text-muted)">Loading your survey…</p>
+    </div>
+
+    <div id="survey-error" class="article-body reveal" hidden>
+      <h2>This link isn't valid.</h2>
+      <p>If you got this URL from an email we sent you, double-check that you copied the whole link. If you reached this page directly, candidates can request a survey from <a href="/involved/#endorsement">our request form</a>.</p>
+      <p id="survey-error-detail" style="font-family:var(--font-mono);font-size:.85rem;color:var(--text-muted)"></p>
+    </div>
+
+    <div id="survey-already" class="article-body reveal" hidden>
+      <h2>This survey has already been submitted.</h2>
+      <p>We received your responses. If you need to revise an answer, reply to the confirmation email or reach <a href="mailto:info@digitalfuturenh.com">info@digitalfuturenh.com</a>.</p>
+    </div>
+
+    <form id="survey-form" class="donate-form reveal" hidden novalidate>
+      <div class="donate-step">
+        <div class="donate-step-label">About you</div>
+        <p style="margin-bottom:1rem;color:var(--text-muted);line-height:1.6">Pre-filled from your request — edit if anything is wrong.</p>
+        <div class="donate-grid">
+          <label class="span-2"><span>Full name</span><input type="text" name="name" required></label>
+          <label><span>Email</span><input type="email" name="email" required></label>
+          <label><span>Phone</span><input type="tel" name="phone"></label>
+          <label class="span-2"><span>Office sought</span><input type="text" name="office" placeholder="e.g. NH House, Hillsborough 21" required></label>
+          <label><span>Party affiliation</span>
+            <select name="party">
+              <option>Republican</option><option>Democrat</option><option>Libertarian</option><option>Independent</option><option>Other</option>
+            </select>
+          </label>
+          <label><span>Incumbent?</span>
+            <select name="incumbent"><option>No</option><option>Yes</option></select>
+          </label>
+        </div>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Pillar 1 · Self-custody</div>
+        <p style="margin-bottom:.85rem">Do you support the right of New Hampshire residents to hold and transact in digital assets, including Bitcoin, in self-custody — without state-level licensing, surveillance, or seizure beyond what existing law permits for cash and personal property?</p>
+        <div class="survey-options"></div>
+        <label style="display:block;margin-top:.85rem"><span>Briefly explain your position (one or two paragraphs).</span><textarea name="self_custody_text" rows="4" required></textarea></label>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Pillar 2 · Zero state taxation of digital-asset gains</div>
+        <p style="margin-bottom:.85rem">New Hampshire has no general income tax, no sales tax, and no capital gains tax. Will you oppose any new state-level tax on the sale, exchange, or use of digital assets?</p>
+        <div class="survey-options"></div>
+        <label style="display:block;margin-top:.85rem"><span>Briefly explain.</span><textarea name="zero_tax_text" rows="4" required></textarea></label>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Pillar 3 · Opposition to CBDCs</div>
+        <p style="margin-bottom:.85rem">Will you oppose any state-level adoption, integration, or use of a U.S. central bank digital currency (CBDC), and will you support legislation that prohibits state agencies from accepting or transacting in a CBDC?</p>
+        <div class="survey-options"></div>
+        <label style="display:block;margin-top:.85rem"><span>Briefly explain.</span><textarea name="cbdc_text" rows="4" required></textarea></label>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Pillar 4 · The right to mine and run nodes</div>
+        <p style="margin-bottom:.85rem">Will you defend the right of New Hampshire residents to operate Bitcoin miners and full nodes — including against energy rationing, zoning bans, or utility surcharges that target this activity specifically?</p>
+        <div class="survey-options"></div>
+        <label style="display:block;margin-top:.85rem"><span>Briefly explain.</span><textarea name="mine_run_text" rows="4" required></textarea></label>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Pillar 5 · Encryption &amp; digital privacy</div>
+        <p style="margin-bottom:.85rem">Will you support strong encryption protections for New Hampshire residents — including opposition to mandatory backdoors, expansive device-search authority, and warrantless data collection by state agencies?</p>
+        <div class="survey-options"></div>
+        <label style="display:block;margin-top:.85rem"><span>Briefly explain.</span><textarea name="encryption_text" rows="4" required></textarea></label>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Pillar 6 · Smart-contract recognition</div>
+        <p style="margin-bottom:.85rem">Will you support recognition of smart contracts and blockchain-based records under New Hampshire contract and evidence law, consistent with the existing UETA framework?</p>
+        <div class="survey-options"></div>
+        <label style="display:block;margin-top:.85rem"><span>Briefly explain.</span><textarea name="smart_contracts_text" rows="4" required></textarea></label>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Public record</div>
+        <label style="display:block"><span>Have you previously taken a public position — by vote, sponsorship, testimony, or statement — on any of the six pillars above? If yes, briefly cite.</span><textarea name="public_record" rows="4"></textarea></label>
+      </div>
+
+      <div class="donate-step">
+        <div class="donate-step-label">Anything else</div>
+        <label style="display:block"><span>Anything else you'd like the PAC to know? Optional.</span><textarea name="other" rows="4"></textarea></label>
+      </div>
+
+      <div id="survey-error-msg" class="donate-error" role="alert"></div>
+
+      <button type="submit" id="survey-submit" class="btn btn-grad donate-submit">Submit Survey</button>
+
+      <p class="donate-disclaimer">By submitting, you authorize NH Digital Future PAC to publish your answers alongside its scorecard. Your contact information will not be sold or shared with other organizations.</p>
+    </form>
+
+    <div id="survey-thanks" class="article-body reveal" hidden>
+      <h2>Thank you.</h2>
+      <p>We received your responses. Our team will compare your answers against your public record and follow up before publishing your grade.</p>
+      <p style="margin-top:1.5rem"><a href="/" class="btn">Return to home</a></p>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-inner">
+      <div class="footer-brand"><a class="nav-brand" href="/"><span class="brand-mark"><img src="/images/logo-icon-color-trans.png" alt="Digital Future NH"></span><span class="brand-word"><b>Digital Future NH</b></span></a><p>A non-partisan PAC building a policy environment where crypto, blockchain, digital assets, and emerging technology can grow responsibly in New Hampshire.</p></div>
+      <nav class="footer-nav">
+        <div class="footer-col"><h4>The PAC</h4><ul><li><a href="/about/">About</a></li><li><a href="/issues/">Issues</a></li><li><a href="/candidates/">Endorsements</a></li><li><a href="/news/">News</a></li></ul></div>
+        <div class="footer-col"><h4>Take Action</h4><ul><li><a href="/involved/">Get Involved</a></li><li><a href="/involved/#donate">Donate</a></li><li><a href="/involved/#endorsement">Request Endorsement</a></li><li><a href="/involved/#contact">Contact</a></li></ul></div>
+        <div class="footer-col"><h4>Legal</h4><ul><li><a href="/privacy/">Privacy</a></li><li><a href="/terms/">Terms</a></li></ul></div>
+      </nav>
+    </div>
+    <div class="footer-disclaimer">Paid for by NH Digital Future PAC, 248 Carley Road, Peterborough, NH 03458. Chris Maidment, Chair. Not authorized by any candidate or candidate&rsquo;s committee. Contributions are not tax deductible.</div>
+    <div class="footer-bottom" style="margin-top:1rem"><span>&copy; <span id="yr">2026</span> Digital Future NH PAC</span><span style="font-family:var(--font-mono);letter-spacing:.08em">BUILDING NH&rsquo;S DIGITAL FUTURE</span></div>
+  </div>
+</footer>
+<script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+</body>
+</html>

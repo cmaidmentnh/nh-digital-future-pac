@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import sqlite3
 import time
 from datetime import datetime, timezone
@@ -122,6 +123,33 @@ def init_db():
           ip TEXT,
           user_agent TEXT,
           source TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS survey_invites (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          token TEXT UNIQUE NOT NULL,
+          created_at TEXT,
+          name TEXT,
+          email TEXT,
+          office TEXT,
+          party TEXT,
+          message TEXT,
+          email_sent_at TEXT,
+          opened_at TEXT,
+          completed_at TEXT,
+          ip TEXT,
+          user_agent TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_survey_token ON survey_invites(token);
+
+        CREATE TABLE IF NOT EXISTS survey_responses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          invite_id INTEGER NOT NULL,
+          submitted_at TEXT,
+          answers TEXT,
+          ip TEXT,
+          user_agent TEXT,
+          FOREIGN KEY (invite_id) REFERENCES survey_invites(id)
         );
         """)
 
@@ -411,8 +439,16 @@ def _send_email(to, subject, body_text, reply_to=None):
         return False, str(e)
 
 
+SURVEY_BASE_URL = os.environ.get('SURVEY_BASE_URL', 'https://digitalfuturenh.com/survey/')
+
+
 @app.route('/api/donate/endorsement-request', methods=['POST', 'OPTIONS'])
 def endorsement_request():
+    """Candidate requests the issues survey. We:
+       (1) record the request,
+       (2) generate a unique token for them,
+       (3) email them a personalized survey link,
+       (4) notify the PAC team."""
     if request.method == 'OPTIONS':
         return ('', 204)
     data = request.get_json(silent=True) or {}
@@ -426,27 +462,136 @@ def endorsement_request():
     if '@' not in email or '.' not in email:
         return jsonify({'error': 'Please enter a valid email address.'}), 400
 
+    token = secrets.token_urlsafe(24)
+    now = datetime.now(timezone.utc).isoformat()
+    ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:80]
+    ua = (request.headers.get('User-Agent') or '')[:300]
+
     with db() as c:
+        c.execute("""
+            INSERT INTO survey_invites
+              (token, created_at, name, email, office, party, message, ip, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (token, now, name[:200], email[:200], office[:200], party[:50],
+              message[:5000], ip, ua))
+        # Also keep a row in the legacy endorsement_requests table for back-compat.
         c.execute("""
             INSERT INTO endorsement_requests
               (created_at, name, email, office, party, message, ip, user_agent)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            datetime.now(timezone.utc).isoformat(),
-            name[:200], email[:200], office[:200], party[:50], message[:5000],
-            (request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:80],
-            (request.headers.get('User-Agent') or '')[:300],
-        ))
+        """, (now, name[:200], email[:200], office[:200], party[:50],
+              message[:5000], ip, ua))
 
-    body = (
-        f"New endorsement / survey request from digitalfuturenh.com\n\n"
+    survey_link = f"{SURVEY_BASE_URL}?t={token}"
+
+    candidate_body = (
+        f"Hi {name.split()[0] if name else 'there'},\n\n"
+        f"Thanks for asking about a Digital Future NH PAC endorsement.\n\n"
+        f"To be considered, please complete the issues survey below. It "
+        f"covers six policy pillars (self-custody, zero state taxation of "
+        f"digital-asset gains, opposition to CBDCs, the right to mine and "
+        f"run nodes, encryption and digital privacy, and smart-contract "
+        f"recognition). Most candidates finish it in under 15 minutes.\n\n"
+        f"Your survey link (unique to you — please don't share it):\n"
+        f"{survey_link}\n\n"
+        f"Endorsements are party-blind and graded against the public framework "
+        f"on https://digitalfuturenh.com/issues/. Once you submit, we'll "
+        f"compare your answers against your public record and follow up.\n\n"
+        f"Questions: just reply to this email.\n\n"
+        f"— NH Digital Future PAC\n"
+        f"  info@digitalfuturenh.com  ·  digitalfuturenh.com\n\n"
+        f"--\n"
+        f"Paid for by NH Digital Future PAC, 248 Carley Road, Peterborough, "
+        f"NH 03458. Chris Maidment, Chair. Not authorized by any candidate or "
+        f"candidate's committee.\n"
+    )
+    _send_email(email, "Your NH Digital Future PAC issues survey",
+                candidate_body, reply_to=ENDORSEMENT_TO)
+
+    team_body = (
+        f"New survey request from digitalfuturenh.com\n\n"
         f"Name:    {name}\n"
         f"Email:   {email}\n"
         f"Office:  {office or '(not specified)'}\n"
         f"Party:   {party or '(not specified)'}\n\n"
-        f"Why they'd like an endorsement:\n{message or '(not specified)'}\n"
+        f"Why they'd like an endorsement:\n{message or '(not specified)'}\n\n"
+        f"Survey link sent to candidate:\n{survey_link}\n"
     )
-    _send_email(ENDORSEMENT_TO, f"Endorsement request — {name}", body, reply_to=email)
+    _send_email(ENDORSEMENT_TO, f"Survey request — {name}",
+                team_body, reply_to=email)
+
+    with db() as c:
+        c.execute("UPDATE survey_invites SET email_sent_at = ? WHERE token = ?",
+                  (now, token))
+
+    return jsonify({'ok': True})
+
+
+@app.get('/api/donate/survey/info')
+def survey_info():
+    """Public lookup of survey metadata by token (used by /survey/ page)."""
+    t = (request.args.get('t') or '').strip()
+    if not t:
+        return jsonify({'error': 'missing token'}), 400
+    with db() as c:
+        row = c.execute("""
+            SELECT id, name, email, office, party, completed_at
+              FROM survey_invites WHERE token = ?
+        """, (t,)).fetchone()
+        if not row:
+            return jsonify({'error': 'survey link not found'}), 404
+        c.execute("UPDATE survey_invites SET opened_at = COALESCE(opened_at, ?) WHERE token = ?",
+                  (datetime.now(timezone.utc).isoformat(), t))
+    return jsonify({
+        'name': row['name'],
+        'email': row['email'],
+        'office': row['office'],
+        'party': row['party'],
+        'completed': bool(row['completed_at']),
+    })
+
+
+@app.route('/api/donate/survey/submit', methods=['POST', 'OPTIONS'])
+def survey_submit():
+    if request.method == 'OPTIONS':
+        return ('', 204)
+    data = request.get_json(silent=True) or {}
+    t = (data.get('token') or '').strip()
+    answers = data.get('answers')
+    if not t:
+        return jsonify({'error': 'missing token'}), 400
+    if not isinstance(answers, dict):
+        return jsonify({'error': 'answers must be an object'}), 400
+
+    now = datetime.now(timezone.utc).isoformat()
+    ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:80]
+    ua = (request.headers.get('User-Agent') or '')[:300]
+
+    with db() as c:
+        inv = c.execute("""
+            SELECT id, name, email, office, party FROM survey_invites WHERE token = ?
+        """, (t,)).fetchone()
+        if not inv:
+            return jsonify({'error': 'survey link not found'}), 404
+        c.execute("""
+            INSERT INTO survey_responses (invite_id, submitted_at, answers, ip, user_agent)
+            VALUES (?, ?, ?, ?, ?)
+        """, (inv['id'], now, json.dumps(answers)[:200000], ip, ua))
+        c.execute("UPDATE survey_invites SET completed_at = ? WHERE id = ?",
+                  (now, inv['id']))
+
+    summary = "\n".join(f"{k}: {v}" for k, v in answers.items() if v)
+    body = (
+        f"Survey response received from digitalfuturenh.com\n\n"
+        f"Candidate: {inv['name']}\n"
+        f"Email:     {inv['email']}\n"
+        f"Office:    {inv['office']}\n"
+        f"Party:     {inv['party']}\n\n"
+        f"Submitted at: {now}\n\n"
+        f"Answers:\n{summary}\n"
+    )
+    _send_email(ENDORSEMENT_TO, f"Survey submitted — {inv['name']}",
+                body, reply_to=inv['email'])
     return jsonify({'ok': True})
 
 
