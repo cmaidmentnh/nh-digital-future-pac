@@ -20,16 +20,16 @@
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://digitalfuturenh.com/involved/">
   <link rel="icon" href="/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=21">
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=21">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=22">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=22">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=21">
-  <script src="/js/main.js?v=21" defer></script>
+  <link rel="stylesheet" href="/css/style.css?v=22">
+  <script src="/js/main.js?v=22" defer></script>
   <script src="https://js.stripe.com/v3/" defer></script>
-  <script src="/js/donate.js?v=21" defer></script>
+  <script src="/js/donate.js?v=22" defer></script>
 </head>
 <body>
 <div class="progress-bar"></div>
@@ -178,6 +178,9 @@
         <button type="button" id="cp-copy" class="btn" style="margin-top:.85rem">Copy address</button>
       </div>
       <p style="margin-top:1.25rem;font-size:.88rem;color:var(--text-muted)">USD value at time of receipt: <strong id="cp-usd"></strong>. The deposit address is unique to your donation; do not share it. A copy of these details has also been emailed to you.</p>
+      <div id="cp-countdown" style="margin-top:1rem;padding:.75rem 1rem;background:var(--gray-50);border:1px solid var(--gray-200);font-family:var(--font-mono);font-size:.9rem;color:var(--navy)" hidden>
+        Address valid for: <strong id="cp-countdown-time" style="color:var(--blue-deep, #1d4ed8)"></strong>
+      </div>
     </div>
 
     <div class="grid grid-2 reveal stagger" style="margin-top:3rem">

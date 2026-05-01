@@ -307,6 +307,33 @@
         `${body.pay_amount} ${body.pay_currency.toUpperCase()}`;
       document.getElementById('cp-address').textContent = body.pay_address;
       document.getElementById('cp-usd').textContent = `$${body.price_amount.toFixed(2)} USD`;
+
+      // Countdown timer
+      if (body.expiration_estimate_date) {
+        const expiry = new Date(body.expiration_estimate_date).getTime();
+        const cdBox = document.getElementById('cp-countdown');
+        const cdTime = document.getElementById('cp-countdown-time');
+        cdBox.hidden = false;
+        const tick = () => {
+          const ms = expiry - Date.now();
+          if (ms <= 0) {
+            cdTime.textContent = 'expired — please refresh and try again';
+            cdTime.style.color = '#b91c1c';
+            return;
+          }
+          const days = Math.floor(ms / 86400000);
+          const hours = Math.floor((ms % 86400000) / 3600000);
+          const mins = Math.floor((ms % 3600000) / 60000);
+          let label;
+          if (days >= 1) label = `${days}d ${hours}h ${mins}m`;
+          else if (hours >= 1) label = `${hours}h ${mins}m`;
+          else label = `${mins}m`;
+          cdTime.textContent = label;
+          cdTime.style.color = ms < 86400000 ? '#b91c1c' : '';
+          setTimeout(tick, 30000);
+        };
+        tick();
+      }
       document.getElementById('cp-copy').addEventListener('click', () => {
         navigator.clipboard.writeText(body.pay_address);
         document.getElementById('cp-copy').textContent = 'Copied!';

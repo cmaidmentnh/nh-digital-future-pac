@@ -194,6 +194,20 @@ def init_db():
 init_db()
 
 
+def _migrate_add_column(table, column, decl):
+    """Idempotently add a column if it doesn't already exist."""
+    with db() as c:
+        cols = [r['name'] for r in c.execute(f"PRAGMA table_info({table})").fetchall()]
+        if column not in cols:
+            c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
+_migrate_add_column('crypto_donations', 'reminder_24h_sent_at', 'TEXT')
+_migrate_add_column('crypto_donations', 'reminder_48h_sent_at', 'TEXT')
+_migrate_add_column('crypto_donations', 'reminder_6d_sent_at',  'TEXT')
+_migrate_add_column('crypto_donations', 'expires_at',            'TEXT')
+
+
 # ---------- helpers ----------
 
 def _validate_amount(data: dict) -> tuple[bool, str]:
@@ -709,6 +723,8 @@ def crypto_create_payment():
         'order_description': f"Donation to NH Digital Future PAC from "
                              f"{data['first_name']} {data['last_name']}",
         'ipn_callback_url': 'https://digitalfuturenh.com/api/donate/nowpayments-webhook',
+        # 7 days in minutes — gives donor a full week to send before expiration
+        'time_limit': 10080,
     }
     req = urllib.request.Request(
         'https://api.nowpayments.io/v1/payment',
@@ -733,16 +749,17 @@ def crypto_create_payment():
         return jsonify({'error': f'NOWPayments unreachable: {e}'}), 502
 
     md = data
+    expires_at = np.get('expiration_estimate_date') or np.get('valid_until') or ''
     with db() as c:
         c.execute("""
             INSERT INTO crypto_donations (
               payment_id, order_id, status, price_amount_usd_cents,
-              pay_currency, pay_amount, pay_address, created_at,
+              pay_currency, pay_amount, pay_address, created_at, expires_at,
               first_name, last_name, email, phone,
               address1, address2, city, state, postal_code, country,
               employer, occupation, principal_place,
               ip, user_agent, raw_create
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             str(np.get('payment_id') or ''),
             order_id,
@@ -751,6 +768,7 @@ def crypto_create_payment():
             str(np.get('pay_amount') or ''),
             str(np.get('pay_address') or ''),
             datetime.now(timezone.utc).isoformat(),
+            expires_at,
             md['first_name'][:200], md['last_name'][:200], md['email'][:200],
             (md.get('phone') or '')[:50],
             md['address1'][:200], (md.get('address2') or '')[:200],
@@ -787,7 +805,7 @@ def crypto_create_payment():
         'pay_amount': np.get('pay_amount'),
         'pay_currency': pay_currency,
         'price_amount': price_amount_usd,
-        'expiration_estimate_date': np.get('expiration_estimate_date'),
+        'expiration_estimate_date': expires_at,
         'network': np.get('network'),
     })
 
