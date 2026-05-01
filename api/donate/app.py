@@ -716,6 +716,8 @@ def crypto_create_payment():
         headers={
             'x-api-key': NOWPAYMENTS_API_KEY,
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'DigitalFutureNH-PAC/1.0 (digitalfuturenh.com)',
         },
         method='POST',
     )
