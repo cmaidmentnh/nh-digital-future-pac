@@ -62,7 +62,7 @@ stripe.api_key = STRIPE_SECRET_KEY
 # any plausible state-PAC contribution; Stripe will also flag oversized
 # transactions for review.
 MIN_CENTS = 100          # $1.00
-MAX_CENTS = 500_000_00   # $500,000
+MAX_CENTS = 30_000_00    # $30,000 per-transaction cap
 
 
 # ---------- DB ----------
