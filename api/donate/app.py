@@ -470,6 +470,32 @@ def webhook():
     return jsonify({'received': True})
 
 
+def _format_expiry(iso_string: str) -> str:
+    """Render an ISO timestamp as a human-readable Eastern Time phrase like
+       'on Friday, May 8, 2026 at 12:22 AM ET' — most donors are in NH/ET."""
+    if not iso_string:
+        return 'in approximately 7 days'
+    try:
+        from zoneinfo import ZoneInfo
+        # Strip 'Z' suffix and parse, treating naive as UTC
+        s = iso_string.replace('Z', '+00:00')
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        et = dt.astimezone(ZoneInfo('America/New_York'))
+        # Cross-platform format string
+        weekday = et.strftime('%A')
+        month = et.strftime('%B')
+        day = et.day
+        year = et.year
+        hour12 = et.strftime('%I').lstrip('0') or '12'
+        minute = et.strftime('%M')
+        ampm = et.strftime('%p')
+        return f"on {weekday}, {month} {day}, {year} at {hour12}:{minute} {ampm} ET"
+    except Exception:
+        return f"at {iso_string}"
+
+
 def _send_email(to, subject, body_text, reply_to=None):
     if not _ses:
         return False, 'SES not configured'
@@ -780,6 +806,8 @@ def crypto_create_payment():
             json.dumps(np)[:50000],
         ))
 
+    expiry_human = _format_expiry(expires_at)
+
     # Notify donor right away (lets them re-find the address by email)
     body_text = (
         f"Hi {md['first_name']},\n\n"
@@ -787,6 +815,8 @@ def crypto_create_payment():
         f"To complete your donation of ${price_amount_usd:.2f} USD, send "
         f"{np.get('pay_amount')} {pay_currency.upper()} to:\n\n"
         f"  {np.get('pay_address')}\n\n"
+        f"This deposit address expires {expiry_human}. After that, sending "
+        f"crypto to it could result in lost funds.\n\n"
         f"You can do this from any wallet (Phantom, Coinbase, Ledger, etc.). "
         f"Once the network confirms your transaction we will send a final "
         f"receipt and report the contribution to the New Hampshire Secretary "

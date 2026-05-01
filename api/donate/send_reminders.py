@@ -54,22 +54,46 @@ def send(to, subject, body):
     )
 
 
+def format_expiry(iso_string: str) -> str:
+    if not iso_string:
+        return 'approximately 7 days from when you submitted the form'
+    try:
+        from zoneinfo import ZoneInfo
+        s = iso_string.replace('Z', '+00:00')
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        et = dt.astimezone(ZoneInfo('America/New_York'))
+        weekday = et.strftime('%A')
+        month = et.strftime('%B')
+        day = et.day
+        year = et.year
+        hour12 = et.strftime('%I').lstrip('0') or '12'
+        minute = et.strftime('%M')
+        ampm = et.strftime('%p')
+        return f"{weekday}, {month} {day}, {year} at {hour12}:{minute} {ampm} ET"
+    except Exception:
+        return iso_string
+
+
 def reminder_body(row, label):
     pay_amount = row['pay_amount']
     pay_currency = (row['pay_currency'] or '').upper()
     address = row['pay_address']
     usd = (row['price_amount_usd_cents'] or 0) / 100
+    expiry_str = format_expiry(row['expires_at'])
     return (
         f"Hi {row['first_name']},\n\n"
         f"{label}\n\n"
         f"To complete your donation of ${usd:.2f} USD to NH Digital Future "
         f"PAC, send {pay_amount} {pay_currency} to:\n\n"
         f"  {address}\n\n"
+        f"This deposit address expires {expiry_str}. After that, sending "
+        f"crypto to it could result in lost funds.\n\n"
         f"You can do this from any wallet (Phantom, Coinbase, Ledger, etc.). "
-        f"This deposit address remains valid for 7 days from when you "
-        f"submitted the form. If you've already sent the payment and just "
-        f"haven't seen confirmation yet, you can ignore this — networks "
-        f"sometimes take a few minutes to a few hours to confirm.\n\n"
+        f"If you've already sent the payment and just haven't seen "
+        f"confirmation yet, you can ignore this — networks sometimes take "
+        f"a few minutes to a few hours to confirm.\n\n"
         f"Questions: just reply to this email.\n\n"
         f"— NH Digital Future PAC\n"
         f"  info@digitalfuturenh.com  ·  digitalfuturenh.com\n\n"
