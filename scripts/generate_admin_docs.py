@@ -146,7 +146,8 @@ def build_cover_letter():
         "effective July 2025). Our job is to help keep that ground &mdash; by endorsing "
         "and contributing to candidates from any party who will defend self-custody, "
         "oppose central bank digital currencies, protect the right to mine and run nodes, "
-        "and recognize smart contracts under state contract law.".replace('&mdash;', '—'),
+        "recognize smart contracts under state contract law, and support the affordable, "
+        "reliable energy supply that compute requires.".replace('&mdash;', '—'),
         size=10, space_after=6)
 
     heading(doc, "PAC information", size=11, space_before=4, space_after=2)

@@ -19,7 +19,7 @@
   // Inject radio groups for each pillar
   const pillarKeys = [
     'self_custody', 'zero_tax', 'cbdc',
-    'mine_run', 'encryption', 'smart_contracts'
+    'mine_run', 'encryption', 'smart_contracts', 'energy'
   ];
   document.querySelectorAll('.survey-options').forEach((box, i) => {
     const key = pillarKeys[i];
