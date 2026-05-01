@@ -1596,3 +1596,27 @@ p:last-child { margin-bottom: 0; }
   .donate-step > label > input { font-size: 16px; }
   .donate-grid input, .donate-grid select { font-size: 16px; }
 }
+
+/* ---------- Payment-method tabs ---------- */
+.donate-method-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+}
+.donate-method {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  font-family: var(--font-display, "Space Grotesk", "Inter", sans-serif);
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--navy);
+  padding: .85rem .5rem;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.donate-method:hover { border-color: var(--blue); color: var(--blue); }
+.donate-method.on {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}

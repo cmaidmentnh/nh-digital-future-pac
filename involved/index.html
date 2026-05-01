@@ -20,16 +20,16 @@
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://digitalfuturenh.com/involved/">
   <link rel="icon" href="/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=20">
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=21">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=21">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
-  <link rel="stylesheet" href="/css/style.css?v=20">
-  <script src="/js/main.js?v=20" defer></script>
+  <link rel="stylesheet" href="/css/style.css?v=21">
+  <script src="/js/main.js?v=21" defer></script>
   <script src="https://js.stripe.com/v3/" defer></script>
-  <script src="/js/donate.js?v=20" defer></script>
+  <script src="/js/donate.js?v=21" defer></script>
 </head>
 <body>
 <div class="progress-bar"></div>
@@ -71,6 +71,15 @@
     </div>
 
     <form class="donate-form reveal" id="donate-form" novalidate>
+      <div class="donate-step">
+        <div class="donate-step-label">Pay with</div>
+        <div class="donate-method-tabs">
+          <button type="button" class="donate-method on" data-method="card">Card / ACH</button>
+          <button type="button" class="donate-method" data-method="crypto">Crypto</button>
+        </div>
+        <p id="donate-crypto-min" style="display:none;margin-top:.6rem;font-size:.85rem;color:var(--text-muted);font-family:var(--font-mono)">Minimum varies by network. BTC ≈ $20+ recommended.</p>
+      </div>
+
       <div class="donate-step">
         <div class="donate-step-label">Step 1 · Amount</div>
         <div class="donate-amounts">
@@ -120,10 +129,27 @@
         <p class="donate-help">New Hampshire law and federal best practice require us to collect and report employer, occupation, and principal place of employment for every contributor. If you are retired or unemployed, write "retired" or "not employed" and your home city/state.</p>
       </div>
 
-      <div class="donate-step">
+      <div class="donate-step" id="donate-step-card">
         <div class="donate-step-label">Step 4 · Payment</div>
         <div id="payment-element" class="donate-payment-mount"></div>
         <div id="donate-error" class="donate-error" role="alert"></div>
+      </div>
+
+      <div class="donate-step" id="donate-step-crypto" hidden>
+        <div class="donate-step-label">Step 4 · Cryptocurrency</div>
+        <label style="display:block">
+          <span style="display:block;font-family:var(--font-mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.35rem">Send my donation in</span>
+          <select id="donate-crypto-currency" name="pay_currency" style="width:100%;padding:.7rem .85rem;border:1px solid var(--gray-200);font:inherit;font-size:.95rem;background:#fff">
+            <option value="btc">Bitcoin (BTC)</option>
+            <option value="eth">Ethereum (ETH)</option>
+            <option value="sol">Solana (SOL)</option>
+            <option value="usdc">USDC (Ethereum)</option>
+            <option value="usdcsol">USDC (Solana)</option>
+            <option value="usdtsol">USDT (Solana)</option>
+          </select>
+        </label>
+        <p class="donate-help" style="margin-top:.85rem">After you submit, we will show you a one-time deposit address and the exact amount to send. You can pay from any wallet (Phantom, Coinbase, Ledger, etc.). The contribution is recorded once the network confirms the transaction.</p>
+        <div id="donate-error-crypto" class="donate-error" role="alert"></div>
       </div>
 
       <button type="submit" id="donate-submit" class="btn btn-grad donate-submit" disabled>
@@ -137,6 +163,21 @@
     <div id="donate-success" class="donate-success reveal" hidden>
       <h3>Thank you.</h3>
       <p>Your contribution to NH Digital Future PAC has been received. A receipt is on its way to your email. Records will be reported to the New Hampshire Secretary of State per RSA 664.</p>
+    </div>
+
+    <div id="donate-crypto-pending" class="donate-form reveal" style="text-align:left" hidden>
+      <h3 style="font-family:var(--font-display);font-size:1.5rem;color:var(--navy);margin-bottom:.75rem">Send your contribution.</h3>
+      <p style="margin-bottom:1.25rem">Your KYC information is on file. To complete the donation, send the exact amount below to the deposit address. You can do this from any wallet (Phantom, Coinbase, Ledger, etc.). We will email a final receipt once the network confirms.</p>
+      <div style="background:var(--gray-50);border:1px solid var(--gray-200);padding:1rem;margin-bottom:1rem">
+        <div style="font-family:var(--font-mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.35rem">Send exactly</div>
+        <div id="cp-amount" style="font-family:var(--font-mono);font-size:1.4rem;color:var(--navy);font-weight:600;word-break:break-all"></div>
+      </div>
+      <div style="background:var(--gray-50);border:1px solid var(--gray-200);padding:1rem">
+        <div style="font-family:var(--font-mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.35rem">Deposit address</div>
+        <div id="cp-address" style="font-family:var(--font-mono);font-size:.95rem;color:var(--navy);word-break:break-all;user-select:all"></div>
+        <button type="button" id="cp-copy" class="btn" style="margin-top:.85rem">Copy address</button>
+      </div>
+      <p style="margin-top:1.25rem;font-size:.88rem;color:var(--text-muted)">USD value at time of receipt: <strong id="cp-usd"></strong>. The deposit address is unique to your donation; do not share it. A copy of these details has also been emailed to you.</p>
     </div>
 
     <div class="grid grid-2 reveal stagger" style="margin-top:3rem">

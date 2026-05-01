@@ -42,6 +42,10 @@ ALLOWED_ORIGIN = os.environ.get('ALLOWED_ORIGIN', 'https://digitalfuturenh.com')
 # 0.5 == 0.5% of the charge total. Set to 0 to disable.
 PLATFORM_FEE_PERCENT = float(os.environ.get('PLATFORM_FEE_PERCENT', '0') or '0')
 
+# NOWPayments (crypto) — direct payment API, not invoice/hosted page.
+NOWPAYMENTS_API_KEY = os.environ.get('NOWPAYMENTS_API_KEY', '')
+NOWPAYMENTS_IPN_SECRET = os.environ.get('NOWPAYMENTS_IPN_SECRET', '')
+
 # Email config (AWS SES). digitalfuturenh.com isn't yet a verified SES domain,
 # so we send from 1772strategies.com (parent platform) with reply-to set to
 # info@digitalfuturenh.com.
@@ -151,6 +155,39 @@ def init_db():
           user_agent TEXT,
           FOREIGN KEY (invite_id) REFERENCES survey_invites(id)
         );
+
+        CREATE TABLE IF NOT EXISTS crypto_donations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          payment_id TEXT UNIQUE,
+          order_id TEXT UNIQUE,
+          status TEXT,
+          price_amount_usd_cents INTEGER,
+          pay_currency TEXT,
+          pay_amount TEXT,
+          pay_address TEXT,
+          actually_paid TEXT,
+          created_at TEXT,
+          confirmed_at TEXT,
+          first_name TEXT,
+          last_name TEXT,
+          email TEXT,
+          phone TEXT,
+          address1 TEXT,
+          address2 TEXT,
+          city TEXT,
+          state TEXT,
+          postal_code TEXT,
+          country TEXT,
+          employer TEXT,
+          occupation TEXT,
+          principal_place TEXT,
+          ip TEXT,
+          user_agent TEXT,
+          raw_create TEXT,
+          raw_callback TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_crypto_payment_id ON crypto_donations(payment_id);
+        CREATE INDEX IF NOT EXISTS idx_crypto_order_id ON crypto_donations(order_id);
         """)
 
 
@@ -620,6 +657,207 @@ def briefing_signup():
                 f"New signup on digitalfuturenh.com\n\nEmail: {email}\n",
                 reply_to=email)
     return jsonify({'ok': True})
+
+
+SUPPORTED_CRYPTO = {
+    'btc':  'Bitcoin',
+    'eth':  'Ethereum',
+    'sol':  'Solana',
+    'usdc': 'USDC (Ethereum)',
+    'usdcsol': 'USDC (Solana)',
+    'usdtsol': 'USDT (Solana)',
+}
+
+
+@app.route('/api/donate/crypto/create-payment', methods=['POST', 'OPTIONS'])
+def crypto_create_payment():
+    """Create a direct NOWPayments crypto payment, return the deposit
+    address + crypto amount to display to the donor. We do NOT use the
+    NOWPayments invoice/hosted page — donor sees the address on our
+    site, then sends from their own wallet."""
+    if request.method == 'OPTIONS':
+        return ('', 204)
+    if not NOWPAYMENTS_API_KEY:
+        return jsonify({'error': 'crypto donations not configured'}), 500
+    data = request.get_json(silent=True) or {}
+
+    # validate amount
+    amount_cents = data.get('amount_cents')
+    if not isinstance(amount_cents, int) or amount_cents < MIN_CENTS or amount_cents > MAX_CENTS:
+        return jsonify({'error': 'amount out of range'}), 400
+
+    # validate crypto choice
+    pay_currency = (data.get('pay_currency') or '').lower().strip()
+    if pay_currency not in SUPPORTED_CRYPTO:
+        return jsonify({'error': 'unsupported cryptocurrency'}), 400
+
+    # validate full RSA 664 donor info
+    for f in REQUIRED_DONOR_FIELDS:
+        v = data.get(f)
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return jsonify({'error': f'missing field: {f}'}), 400
+
+    order_id = f"DFNH-{secrets.token_urlsafe(12)}"
+    price_amount_usd = round(amount_cents / 100, 2)
+
+    import urllib.request, urllib.error
+    payload = {
+        'price_amount': price_amount_usd,
+        'price_currency': 'usd',
+        'pay_currency': pay_currency,
+        'order_id': order_id,
+        'order_description': f"Donation to NH Digital Future PAC from "
+                             f"{data['first_name']} {data['last_name']}",
+        'ipn_callback_url': 'https://digitalfuturenh.com/api/donate/nowpayments-webhook',
+    }
+    req = urllib.request.Request(
+        'https://api.nowpayments.io/v1/payment',
+        data=json.dumps(payload).encode('utf-8'),
+        headers={
+            'x-api-key': NOWPAYMENTS_API_KEY,
+            'Content-Type': 'application/json',
+        },
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            np = json.loads(resp.read().decode('utf-8'))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode('utf-8', errors='replace')
+        try: msg = json.loads(body).get('message', body)
+        except Exception: msg = body
+        return jsonify({'error': f'NOWPayments error: {msg}'}), 502
+    except Exception as e:
+        return jsonify({'error': f'NOWPayments unreachable: {e}'}), 502
+
+    md = data
+    with db() as c:
+        c.execute("""
+            INSERT INTO crypto_donations (
+              payment_id, order_id, status, price_amount_usd_cents,
+              pay_currency, pay_amount, pay_address, created_at,
+              first_name, last_name, email, phone,
+              address1, address2, city, state, postal_code, country,
+              employer, occupation, principal_place,
+              ip, user_agent, raw_create
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            str(np.get('payment_id') or ''),
+            order_id,
+            np.get('payment_status') or 'waiting',
+            amount_cents, pay_currency,
+            str(np.get('pay_amount') or ''),
+            str(np.get('pay_address') or ''),
+            datetime.now(timezone.utc).isoformat(),
+            md['first_name'][:200], md['last_name'][:200], md['email'][:200],
+            (md.get('phone') or '')[:50],
+            md['address1'][:200], (md.get('address2') or '')[:200],
+            md['city'][:120], md['state'][:80], md['postal_code'][:20],
+            (md.get('country') or 'US')[:8],
+            md['employer'][:200], md['occupation'][:200], md['principal_place'][:200],
+            (request.headers.get('X-Forwarded-For') or request.remote_addr or '')[:80],
+            (request.headers.get('User-Agent') or '')[:300],
+            json.dumps(np)[:50000],
+        ))
+
+    # Notify donor right away (lets them re-find the address by email)
+    body_text = (
+        f"Hi {md['first_name']},\n\n"
+        f"Thanks for your contribution to NH Digital Future PAC.\n\n"
+        f"To complete your donation of ${price_amount_usd:.2f} USD, send "
+        f"{np.get('pay_amount')} {pay_currency.upper()} to:\n\n"
+        f"  {np.get('pay_address')}\n\n"
+        f"You can do this from any wallet (Phantom, Coinbase, Ledger, etc.). "
+        f"Once the network confirms your transaction we will send a final "
+        f"receipt and report the contribution to the New Hampshire Secretary "
+        f"of State per RSA 664.\n\n"
+        f"This deposit address is unique to your donation; do not share it.\n\n"
+        f"— NH Digital Future PAC\n"
+        f"  info@digitalfuturenh.com  ·  digitalfuturenh.com\n"
+    )
+    _send_email(md['email'], "Complete your crypto donation — NH Digital Future PAC",
+                body_text, reply_to=ENDORSEMENT_TO)
+
+    return jsonify({
+        'payment_id': np.get('payment_id'),
+        'order_id': order_id,
+        'pay_address': np.get('pay_address'),
+        'pay_amount': np.get('pay_amount'),
+        'pay_currency': pay_currency,
+        'price_amount': price_amount_usd,
+        'expiration_estimate_date': np.get('expiration_estimate_date'),
+        'network': np.get('network'),
+    })
+
+
+@app.post('/api/donate/nowpayments-webhook')
+def nowpayments_webhook():
+    """NOWPayments IPN callback. Verify HMAC-SHA512 over the sorted JSON
+    body using the IPN secret, then update DB + notify."""
+    import hmac, hashlib
+    raw = request.data
+    if not NOWPAYMENTS_IPN_SECRET:
+        return jsonify({'error': 'ipn secret not configured'}), 500
+    sig_hdr = request.headers.get('x-nowpayments-sig', '')
+    try:
+        body = json.loads(raw.decode('utf-8'))
+    except Exception:
+        return jsonify({'error': 'invalid body'}), 400
+    canonical = json.dumps(body, separators=(',', ':'), sort_keys=True).encode('utf-8')
+    expected = hmac.new(NOWPAYMENTS_IPN_SECRET.encode('utf-8'),
+                        canonical, hashlib.sha512).hexdigest()
+    if not hmac.compare_digest(expected, sig_hdr):
+        return jsonify({'error': 'bad signature'}), 400
+
+    payment_id = str(body.get('payment_id') or '')
+    order_id = body.get('order_id') or ''
+    status = (body.get('payment_status') or '').lower()
+    actually_paid = body.get('actually_paid') or body.get('pay_amount')
+
+    with db() as c:
+        row = c.execute("SELECT * FROM crypto_donations WHERE payment_id = ? OR order_id = ?",
+                        (payment_id, order_id)).fetchone()
+        if row:
+            c.execute("""UPDATE crypto_donations
+                            SET status = ?, actually_paid = ?, raw_callback = ?,
+                                confirmed_at = CASE WHEN ? IN ('finished','confirmed') THEN ? ELSE confirmed_at END
+                          WHERE id = ?""",
+                      (status, str(actually_paid or ''), json.dumps(body)[:50000],
+                       status, datetime.now(timezone.utc).isoformat(), row['id']))
+
+    if status in ('finished', 'confirmed'):
+        donor = ''
+        if row:
+            donor = f"{row['first_name']} {row['last_name']}".strip() or row['email']
+            email_body = (
+                f"Crypto donation confirmed via digitalfuturenh.com\n\n"
+                f"Amount:        ${row['price_amount_usd_cents']/100:.2f} USD "
+                f"(paid {actually_paid} {row['pay_currency'].upper()})\n"
+                f"Donor:         {donor}\n"
+                f"Email:         {row['email']}\n"
+                f"Address:       {row['address1']} {row['address2'] or ''}, "
+                f"{row['city']}, {row['state']} {row['postal_code']} {row['country']}\n"
+                f"Employer:      {row['employer']}\n"
+                f"Occupation:    {row['occupation']}\n"
+                f"Place of work: {row['principal_place']}\n"
+                f"NOWPayments ID: {payment_id}\n"
+                f"Order ID:      {order_id}\n"
+            )
+            _send_email(ENDORSEMENT_TO,
+                        f"Crypto donation: ${row['price_amount_usd_cents']/100:.2f} from {donor}",
+                        email_body, reply_to=row['email'])
+            # Final receipt to donor
+            receipt = (
+                f"Thanks {row['first_name']} — your crypto donation is confirmed.\n\n"
+                f"Amount:  ${row['price_amount_usd_cents']/100:.2f} USD ({actually_paid} {row['pay_currency'].upper()})\n"
+                f"Network confirmation received {datetime.now(timezone.utc).date().isoformat()}\n\n"
+                f"This contribution will be reported to the New Hampshire "
+                f"Secretary of State per RSA 664.\n\n"
+                f"— NH Digital Future PAC\n"
+            )
+            _send_email(row['email'], "Crypto donation confirmed — NH Digital Future PAC",
+                        receipt, reply_to=ENDORSEMENT_TO)
+    return jsonify({'received': True})
 
 
 @app.get('/api/donate/health')

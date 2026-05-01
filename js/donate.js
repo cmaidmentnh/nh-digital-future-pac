@@ -49,9 +49,40 @@
   const submitBtn = document.getElementById('donate-submit');
   const submitAmt = document.getElementById('donate-submit-amount');
   const errorBox = document.getElementById('donate-error');
+  const errorBoxCrypto = document.getElementById('donate-error-crypto');
   const customInput = document.getElementById('donate-custom-amount');
   const successBox = document.getElementById('donate-success');
+  const cryptoPending = document.getElementById('donate-crypto-pending');
   const presetButtons = form.querySelectorAll('.donate-amount');
+  const stepCard = document.getElementById('donate-step-card');
+  const stepCrypto = document.getElementById('donate-step-crypto');
+  const cryptoMinNote = document.getElementById('donate-crypto-min');
+  const methodTabs = form.querySelectorAll('.donate-method');
+  const coverFeesLabel = document.querySelector('.donate-cover-fee');
+
+  let payMethod = 'card';
+
+  methodTabs.forEach(b => {
+    b.addEventListener('click', () => {
+      payMethod = b.dataset.method;
+      methodTabs.forEach(x => x.classList.toggle('on', x === b));
+      if (payMethod === 'card') {
+        stepCard.hidden = false;
+        stepCrypto.hidden = true;
+        cryptoMinNote.style.display = 'none';
+        if (coverFeesLabel) coverFeesLabel.style.display = '';
+      } else {
+        stepCard.hidden = true;
+        stepCrypto.hidden = false;
+        cryptoMinNote.style.display = '';
+        // Cover-fees doesn't apply to crypto donations (no card processor)
+        if (coverFeesLabel) coverFeesLabel.style.display = 'none';
+      }
+      submitBtn.disabled = baseAmountCents <= 0;
+      submitBtn.querySelector('.donate-submit-label').textContent =
+        payMethod === 'crypto' ? 'Continue to send crypto' : 'Contribute';
+    });
+  });
 
   let baseAmountCents = 0;   // what the donor wants the PAC to receive
   let amountCents = 0;       // what the card is actually charged (includes fee if covered)
@@ -240,16 +271,73 @@
     return null;
   }
 
+  async function submitCrypto() {
+    if (errorBoxCrypto) { errorBoxCrypto.textContent = ''; errorBoxCrypto.style.display = 'none'; }
+    submitBtn.disabled = true;
+    const labelEl = submitBtn.querySelector('.donate-submit-label');
+    labelEl.textContent = 'Generating address…';
+    const fd = new FormData(form);
+    const donor = Object.fromEntries(fd.entries());
+    const payload = {
+      amount_cents: baseAmountCents,
+      pay_currency: document.getElementById('donate-crypto-currency').value,
+      first_name: donor.first_name,
+      last_name: donor.last_name,
+      email: donor.email,
+      phone: donor.phone,
+      address1: donor.address1,
+      address2: donor.address2,
+      city: donor.city,
+      state: donor.state,
+      postal_code: donor.postal_code,
+      country: donor.country,
+      employer: donor.employer,
+      occupation: donor.occupation,
+      principal_place: donor.principal_place,
+    };
+    try {
+      const resp = await fetch(API_BASE + '/crypto/create-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const body = await resp.json();
+      if (!resp.ok) throw new Error(body.error || 'Could not create payment.');
+      document.getElementById('cp-amount').textContent =
+        `${body.pay_amount} ${body.pay_currency.toUpperCase()}`;
+      document.getElementById('cp-address').textContent = body.pay_address;
+      document.getElementById('cp-usd').textContent = `$${body.price_amount.toFixed(2)} USD`;
+      document.getElementById('cp-copy').addEventListener('click', () => {
+        navigator.clipboard.writeText(body.pay_address);
+        document.getElementById('cp-copy').textContent = 'Copied!';
+        setTimeout(() => { document.getElementById('cp-copy').textContent = 'Copy address'; }, 2000);
+      });
+      form.style.display = 'none';
+      cryptoPending.hidden = false;
+      cryptoPending.scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+      if (errorBoxCrypto) {
+        errorBoxCrypto.textContent = e.message || 'Could not create payment.';
+        errorBoxCrypto.style.display = 'block';
+      }
+      submitBtn.disabled = false;
+      labelEl.textContent = 'Continue to send crypto';
+    }
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     showError('');
 
-    if (amountCents <= 0) { showError('Please pick an amount.'); return; }
+    if (baseAmountCents <= 0) { showError('Please pick an amount.'); return; }
     const missing = validateDonorClient();
     if (missing) {
       showError('Please complete: ' + (missing.previousElementSibling?.textContent || missing.name));
       return;
     }
+
+    if (payMethod === 'crypto') { return submitCrypto(); }
+
     if (!mounted || !stripe || !elements) {
       showError('Payment is still loading. Please wait a moment and try again.');
       return;
