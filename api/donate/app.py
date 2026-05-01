@@ -236,34 +236,45 @@ def _current_cycle_start_iso() -> str:
     return datetime(ed.year, ed.month, ed.day, tzinfo=timezone.utc).isoformat()
 
 
-def _donor_total_cents(email: str, exclude_pi_id: str = '', exclude_payment_id: str = '') -> int:
-    """Total of confirmed + in-flight contributions from this donor (matched by
-    lowercase email) across card and crypto rails — scoped to the current
-    biennial NH election cycle. Excludes failed/expired."""
-    if not email:
+def _norm(s: str) -> str:
+    """Lowercase + collapse whitespace, used for donor identity matching."""
+    return ' '.join((s or '').lower().split())
+
+
+def _donor_total_cents(
+    first_name: str, last_name: str, address1: str, postal_code: str,
+    exclude_pi_id: str = '', exclude_payment_id: str = '',
+) -> int:
+    """Total of confirmed + in-flight contributions from this donor —
+    matched on (first_name, last_name, address1, postal_code) so that
+    multiple contributors at the same household / sharing an email
+    each get their own per-donor cap. Scoped to the current biennial
+    NH election cycle."""
+    f, l, a = _norm(first_name), _norm(last_name), _norm(address1)
+    z = (postal_code or '').strip()
+    if not (f and l and a and z):
         return 0
-    e = email.strip().lower()
     cycle_start = _current_cycle_start_iso()
     total = 0
     with db() as c:
-        # Card donations (Stripe). Count succeeded only — in-flight Stripe
-        # PaymentIntents are easy to abandon and shouldn't block a real donor.
+        # Card donations — succeeded only.
         for r in c.execute(
-            "SELECT amount_cents FROM donations WHERE LOWER(email) = ? AND status = 'succeeded' "
+            "SELECT amount_cents FROM donations WHERE status = 'succeeded' "
+            "AND LOWER(TRIM(first_name)) = ? AND LOWER(TRIM(last_name)) = ? "
+            "AND LOWER(TRIM(address1)) = ? AND TRIM(postal_code) = ? "
             "AND created_at >= ? AND COALESCE(payment_intent_id, '') <> ?",
-            (e, cycle_start, exclude_pi_id)
+            (f, l, a, z, cycle_start, exclude_pi_id)
         ).fetchall():
             total += int(r['amount_cents'] or 0)
 
-        # Crypto donations. Count confirmed/finished plus in-flight (waiting,
-        # confirming, partially_paid) so a donor can't open multiple kiosks
-        # to bypass the cap during the 7-day window.
+        # Crypto donations — confirmed/finished plus in-flight.
         for r in c.execute(
             "SELECT price_amount_usd_cents FROM crypto_donations "
-            "WHERE LOWER(email) = ? "
+            "WHERE LOWER(TRIM(first_name)) = ? AND LOWER(TRIM(last_name)) = ? "
+            "AND LOWER(TRIM(address1)) = ? AND TRIM(postal_code) = ? "
             "AND status IN ('finished','confirmed','waiting','confirming','partially_paid','sending') "
             "AND created_at >= ? AND COALESCE(payment_id, '') <> ?",
-            (e, cycle_start, exclude_payment_id)
+            (f, l, a, z, cycle_start, exclude_payment_id)
         ).fetchall():
             total += int(r['price_amount_usd_cents'] or 0)
     return total
@@ -384,7 +395,10 @@ def update_metadata():
             (pi_id,)
         ).fetchone()
     new_amount = int(cur_amt_row['amount_cents']) if cur_amt_row else 0
-    prior_total = _donor_total_cents(data['email'], exclude_pi_id=pi_id)
+    prior_total = _donor_total_cents(
+        data['first_name'], data['last_name'], data['address1'], data['postal_code'],
+        exclude_pi_id=pi_id,
+    )
     if prior_total + new_amount > MAX_PER_DONOR_CENTS:
         remaining = max(MAX_PER_DONOR_CENTS - prior_total, 0)
         return jsonify({
@@ -817,7 +831,9 @@ def crypto_create_payment():
             return jsonify({'error': f'missing field: {f}'}), 400
 
     # Per-donor aggregate cap
-    prior_total = _donor_total_cents(data['email'])
+    prior_total = _donor_total_cents(
+        data['first_name'], data['last_name'], data['address1'], data['postal_code'],
+    )
     if prior_total + amount_cents > MAX_PER_DONOR_CENTS:
         remaining = max(MAX_PER_DONOR_CENTS - prior_total, 0)
         cycle_start_human = _current_cycle_start_iso()[:10]
