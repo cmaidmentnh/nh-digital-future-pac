@@ -211,20 +211,47 @@ _migrate_add_column('crypto_donations', 'expires_at',            'TEXT')
 
 # ---------- helpers ----------
 
+def _current_cycle_start_iso() -> str:
+    """ISO timestamp of the start of the current biennial NH election cycle.
+
+    Cycle boundaries = NH general election day (first Tuesday after the first
+    Monday in November of even-numbered years), inclusive. So a contribution
+    on or after the most recent election day counts toward the new cycle.
+    """
+    from datetime import date
+    today = datetime.now(timezone.utc).date()
+
+    def gen_election(y: int) -> date:
+        from datetime import date as _date
+        nov1 = _date(y, 11, 1)
+        # weekday(): Mon=0..Sun=6. First Monday is on day (1 + offset).
+        offset = (0 - nov1.weekday()) % 7
+        first_monday_day = 1 + offset
+        return _date(y, 11, first_monday_day + 1)  # Tuesday after first Monday
+
+    y = today.year if today.year % 2 == 0 else today.year - 1
+    ed = gen_election(y)
+    if today < ed:
+        ed = gen_election(y - 2)
+    return datetime(ed.year, ed.month, ed.day, tzinfo=timezone.utc).isoformat()
+
+
 def _donor_total_cents(email: str, exclude_pi_id: str = '', exclude_payment_id: str = '') -> int:
     """Total of confirmed + in-flight contributions from this donor (matched by
-    lowercase email) across card and crypto rails. Excludes failed/expired."""
+    lowercase email) across card and crypto rails — scoped to the current
+    biennial NH election cycle. Excludes failed/expired."""
     if not email:
         return 0
     e = email.strip().lower()
+    cycle_start = _current_cycle_start_iso()
     total = 0
     with db() as c:
         # Card donations (Stripe). Count succeeded only — in-flight Stripe
         # PaymentIntents are easy to abandon and shouldn't block a real donor.
         for r in c.execute(
             "SELECT amount_cents FROM donations WHERE LOWER(email) = ? AND status = 'succeeded' "
-            "AND COALESCE(payment_intent_id, '') <> ?",
-            (e, exclude_pi_id)
+            "AND created_at >= ? AND COALESCE(payment_intent_id, '') <> ?",
+            (e, cycle_start, exclude_pi_id)
         ).fetchall():
             total += int(r['amount_cents'] or 0)
 
@@ -235,8 +262,8 @@ def _donor_total_cents(email: str, exclude_pi_id: str = '', exclude_payment_id: 
             "SELECT price_amount_usd_cents FROM crypto_donations "
             "WHERE LOWER(email) = ? "
             "AND status IN ('finished','confirmed','waiting','confirming','partially_paid','sending') "
-            "AND COALESCE(payment_id, '') <> ?",
-            (e, exclude_payment_id)
+            "AND created_at >= ? AND COALESCE(payment_id, '') <> ?",
+            (e, cycle_start, exclude_payment_id)
         ).fetchall():
             total += int(r['price_amount_usd_cents'] or 0)
     return total
@@ -793,13 +820,15 @@ def crypto_create_payment():
     prior_total = _donor_total_cents(data['email'])
     if prior_total + amount_cents > MAX_PER_DONOR_CENTS:
         remaining = max(MAX_PER_DONOR_CENTS - prior_total, 0)
+        cycle_start_human = _current_cycle_start_iso()[:10]
         return jsonify({
             'error': (
                 f'Per-donor contribution cap reached. You have already '
-                f'contributed ${prior_total/100:,.2f} this cycle; the cap is '
+                f'contributed ${prior_total/100:,.2f} this election cycle '
+                f'(since {cycle_start_human}); the cap is '
                 f'${MAX_PER_DONOR_CENTS/100:,.0f}. '
-                + (f'You can give up to ${remaining/100:,.2f} more.'
-                   if remaining > 0 else 'You have reached the limit.')
+                + (f'You can give up to ${remaining/100:,.2f} more this cycle.'
+                   if remaining > 0 else 'You have reached the limit for this cycle.')
             )
         }), 400
 
